@@ -470,7 +470,7 @@ static void run_typing_trainer(char *path, const char *text)
     mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
     mvprintw(1, 0, "Accuracy: %.2f%%   Consistency: %.2f%%", accuracy,
 	     consistency);
-    mvprintw(3, 0, "Press any key to exit...");
+    mvprintw(4, 5, "[[ Press any key ]]");
     refresh();
     getch();
     endwin();
