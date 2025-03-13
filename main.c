@@ -1,3 +1,4 @@
+/* Copyright 2025 Joshua Rose <joshuarose@gmx.com> */
 #include <dirent.h>
 #include <limits.h>
 #include <ncurses.h>
