@@ -467,7 +467,7 @@ static void run_typing_trainer(char *path, const char *text)
 
     clear();
     /* TODO: make accuracy of less than 90 red and otherwise green */
-    mvprintw(0, 0, "Finished! WPM: %.2f   CPM: %.2f", wpm, cpm);
+    mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
     mvprintw(1, 0, "Accuracy: %.2f%%   Consistency: %.2f%%", accuracy,
 	     consistency);
     mvprintw(3, 0, "Press any key to exit...");
