@@ -23,7 +23,7 @@
  *
  * For instance "foo" (correct) typed as "fob" (incorrect) would still show "foo"
  * but the last letter would be red.
- */
+*/
 #define HIDE_ERR       true
 
 /**
@@ -97,8 +97,7 @@ static void seed_rng(void);
  * the WPM, CPM, accuracy, and consistency metrics, separated by commas.
  */
 static void save_score(double wpm, double cpm, double accuracy,
-		       double consistency, char* path);
-
+		       double consistency, char *path);
 
 /**
  * run_typing_trainer - Run an ncurses-based typing trainer.
@@ -123,7 +122,7 @@ static void run_typing_trainer(char *path, const char *text);
  * 
  * Send the program usage details into stderr pipe.
  */
-static void usage(char* progname);
+static void usage(char *progname);
 
 /**
  * main - Entry point for the typing trainer program.
@@ -131,7 +130,7 @@ static void usage(char* progname);
  * Reads a random text file from the ENTRIES_DIR directory and launches the typing trainer.
  * Returns 0 on success, or a non-zero value on error.
  */
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     if (argc != 1) {
 	usage(argv[0]);
@@ -339,7 +338,7 @@ static void seed_rng(void)
 }
 
 static void save_score(double wpm, double cpm, double accuracy,
-		       double consistency, char* path)
+		       double consistency, char *path)
 {
     FILE *fp = fopen(SCORES_FILE, "a");
     if (!fp) {
@@ -347,11 +346,12 @@ static void save_score(double wpm, double cpm, double accuracy,
 	return;
     }
     /* Save score in CSV format: WPM,CPM,Accuracy,Consistency,Path */
-    fprintf(fp, "%.2f,%.2f,%.2f,%.2f,%s\n", wpm, cpm, accuracy, consistency, path);
+    fprintf(fp, "%.2f,%.2f,%.2f,%.2f,%s\n", wpm, cpm, accuracy,
+	    consistency, path);
     fclose(fp);
 }
 
-static void run_typing_trainer(char* path, const char *text)
+static void run_typing_trainer(char *path, const char *text)
 {
     size_t total_chars = strlen(text);
     size_t current_index = 0;
@@ -369,7 +369,6 @@ static void run_typing_trainer(char* path, const char *text)
     /* Counters for keystrokes and errors for consistency */
     int total_keystrokes = 0;
     int error_count = 0;
-
 
     /* Initialize ncurses */
     initscr();
@@ -419,15 +418,15 @@ static void run_typing_trainer(char* path, const char *text)
 	}
 
 	/* Display the remaining untyped text in dim white */
-	(void)attron(COLOR_PAIR(2));
-	(void)attron(A_DIM);
+	(void) attron(COLOR_PAIR(2));
+	(void) attron(A_DIM);
 	mvprintw(0, current_index - offset, "%.*s",
 		 screen_width - (current_index - offset),
 		 text + current_index);
-	(void)attroff(A_DIM);
-	(void)attroff(COLOR_PAIR(2));
+	(void) attroff(A_DIM);
+	(void) attroff(COLOR_PAIR(2));
 
-	(void)refresh();
+	(void) refresh();
 
 	ch = getch();
 	if (!started) {
@@ -453,7 +452,6 @@ static void run_typing_trainer(char* path, const char *text)
 	elapsed = 1;		/* avoid division by zero */
     double wpm, cpm;
     calc_speed(path, elapsed, &wpm, &cpm);
-
 
     /* Accuracy based on final text */
     size_t correct_chars = 0;
@@ -483,7 +481,8 @@ static void run_typing_trainer(char* path, const char *text)
     free(typed);
 }
 
-void usage(char* progname) {
-	fprintf(stderr, "Usage: %s [args]\n", progname);
-	exit(EXIT_FAILURE);
+void usage(char *progname)
+{
+    fprintf(stderr, "Usage: %s [args]\n", progname);
+    exit(EXIT_FAILURE);
 }
