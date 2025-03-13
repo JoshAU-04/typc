@@ -477,7 +477,6 @@ static void run_typing_trainer(char *path, const char *text)
 
     mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
 
-    /* TODO: make accuracy of less than 90 red and otherwise green */
     int acc_color_index = 4;	/* green en default */
     if (accuracy < (double) 90.0) {
 	acc_color_index = 3;
