@@ -15,6 +15,12 @@
 #define CHAR_OFFSET    20
 #define SCORES_FILE    "./data/scores.csv"
 
+/* minimal printable char */
+#define PRINT_CHAR_MIN 32
+
+/* maximal printable char */
+#define PRINT_CHAR_MAX 126
+
 /*
  * Easier visual on error
  *
@@ -384,8 +390,10 @@ static void run_typing_trainer(char *path, const char *text)
 	init_pair(1, COLOR_WHITE, COLOR_BLACK);
 	/* Color pair 2: white on black for untyped text with dim attribute */
 	init_pair(2, COLOR_WHITE, COLOR_BLACK);
-	/* Color pair 3: red on black for incorrect typed text */
+	/* Color pair 3: red on black for incorrect typed text or bad accuracy */
 	init_pair(3, COLOR_RED, COLOR_BLACK);
+	/* Color pair 4: green on black for good accurarcy */
+	init_pair(4, COLOR_GREEN, COLOR_BLACK);
     }
 
     /* Typing loop with horizontal scrolling and backspace support */
@@ -433,10 +441,10 @@ static void run_typing_trainer(char *path, const char *text)
 	    start_time = time(NULL);
 	    started = 1;
 	}
-	if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+	if (ch == KEY_BACKSPACE || ch == PRINT_CHAR_MAX + 1 || ch == 8) {
 	    if (current_index > 0)
 		current_index--;
-	} else if (ch >= 32 && ch <= 126) {	/* Printable characters */
+	} else if (ch >= PRINT_CHAR_MIN && ch <= PRINT_CHAR_MAX) {	/* Printable characters */
 	    total_keystrokes++;
 	    typed[current_index] = (char) ch;
 	    if ((unsigned char) ch != (unsigned char) text[current_index])
@@ -466,10 +474,17 @@ static void run_typing_trainer(char *path, const char *text)
 	 total_keystrokes) : 100.0;
 
     clear();
-    /* TODO: make accuracy of less than 90 red and otherwise green */
+
     mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
-    mvprintw(1, 0, "Accuracy: %.2f%%   Consistency: %.2f%%", accuracy,
+
+    /* TODO: make accuracy of less than 90 red and otherwise green */
+    int acc_color_index = 4;	/* green en default */
+    if (accuracy < (double) 90.0) {
+	acc_color_index = 3;
+    }
+    mvprintw(1, 0, "Accuracy: %.4f%%   Consistency: %.2f%%", accuracy,
 	     consistency);
+    (void) attroff(COLOR_PAIR(acc_color_index));
     mvprintw(4, 5, "[[ Press any key ]]");
     refresh();
     getch();
