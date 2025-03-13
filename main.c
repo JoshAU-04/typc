@@ -1,4 +1,3 @@
-/* TODO: ability to pause tests (need to introduce TestState enum for this */
 #include <dirent.h>
 #include <limits.h>
 #include <ncurses.h>
@@ -398,7 +397,7 @@ static void run_typing_trainer(char* path, const char *text)
 		attroff(COLOR_PAIR(1));
 	    } else {
 		attron(COLOR_PAIR(3));
-		mvaddch(0, i - offset, typed[i]);
+		mvaddch(0, i - offset, text[i]);
 		attroff(COLOR_PAIR(3));
 	    }
 	}
