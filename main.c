@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
 #define REGULAR_FILE   DT_REG
 #define MAX_PATH_SIZE  (PATH_MAX)
@@ -23,6 +24,21 @@
  * The caller is responsible for freeing the array and each string.
  */
 static char **collect_dir_entries(const char *path, size_t *count);
+
+/**
+ * calc_speed - Get WPM and CPM values from a file.
+ * @filename: Path to the file to read. 
+ * @elapsed: Total elapsed time. Assumed to be 0.0.
+ * @wpm: Words typed per minute value.
+ * @cpm: Characters typed per minute value.
+ *
+ * This function reads the file specified by 'filename',
+ * counts the total non-whitespace characters, and then calculates
+ * the characters per minute (CPM) and words per minute (WPM) based on
+ * the elapsed time (in seconds).
+ */
+static void calc_speed(const char *filename, double elapsed, double *wpm,
+		       double *cpm);
 
 /**
  * random_file_from_dir - Select a random file from the directory.
@@ -63,17 +79,19 @@ static void seed_rng(void);
  * @cpm: Characters per minute.
  * @accuracy: Accuracy in percentage.
  * @consistency: Consistency in percentage.
+ * @path: Name of the file path
  *
  * Opens the scores file (creating it if necessary) and appends a new line containing
  * the WPM, CPM, accuracy, and consistency metrics, separated by commas.
  */
 static void save_score(double wpm, double cpm, double accuracy,
-		       double consistency);
+		       double consistency, char* path);
 
 
 /**
  * run_typing_trainer - Run an ncurses-based typing trainer.
  * @text: The text to be typed by the user.
+ * @path: Path to the file containing the text.
  *
  * Uses ncurses to display the text for typing.
  * The already typed text is displayed character-by-character:
@@ -85,7 +103,7 @@ static void save_score(double wpm, double cpm, double accuracy,
  * Upon completion, the function calculates and displays both the words-per-minute (WPM)
  * and the accuracy metric.
  */
-static void run_typing_trainer(const char *text);
+static void run_typing_trainer(char *path, const char *text);
 
 /**
  * main - Entry point for the typing trainer program.
@@ -125,7 +143,7 @@ int main(void)
     }
 
     /* Launch the typing trainer interface */
-    run_typing_trainer(file_contents);
+    run_typing_trainer(full_path, file_contents);
 
     free(file_contents);
     free(full_path);
@@ -186,6 +204,31 @@ static char *read_file(const char *path)
     }
 
     return buffer;
+}
+
+static void calc_speed(const char *filename, double elapsed, double *wpm,
+		       double *cpm)
+{
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+	perror("Error opening file");
+	exit(EXIT_FAILURE);
+    }
+
+    int total_chars = 0;
+    int ch;
+
+    // Read the file character by character and count only non-space characters
+    while ((ch = fgetc(file)) != EOF) {
+	if (!isspace(ch)) {
+	    total_chars++;
+	}
+    }
+    fclose(file);
+
+    // Calculate characters per minute and words per minute
+    *cpm = ((double) total_chars / elapsed) * 60.0;
+    *wpm = *cpm / 5.0;		// Assuming average word length is 5 characters
 }
 
 static char *random_file_from_dir(void)
@@ -271,7 +314,7 @@ static void seed_rng(void)
 }
 
 static void save_score(double wpm, double cpm, double accuracy,
-		       double consistency)
+		       double consistency, char* path)
 {
     FILE *fp = fopen(SCORES_FILE, "a");
     if (!fp) {
@@ -279,11 +322,11 @@ static void save_score(double wpm, double cpm, double accuracy,
 	return;
     }
     /* Save score in CSV format: WPM,CPM,Accuracy,Consistency */
-    fprintf(fp, "%.2f,%.2f,%.2f,%.2f\n", wpm, cpm, accuracy, consistency);
+    fprintf(fp, "%.2f,%.2f,%.2f,%.2f,%s\n", wpm, cpm, accuracy, consistency, path);
     fclose(fp);
 }
 
-static void run_typing_trainer(const char *text)
+static void run_typing_trainer(char* path, const char *text)
 {
     size_t total_chars = strlen(text);
     size_t current_index = 0;
@@ -380,11 +423,9 @@ static void run_typing_trainer(const char *text)
     double elapsed = difftime(end_time, start_time);
     if (elapsed <= 0)
 	elapsed = 1;		/* avoid division by zero */
-    double cpm = ((double) total_chars / elapsed) * 60.0;
-    /* FIXME: each word isn't necessarily 5.0 and should therefore be
-     * calculated individually.
-     */
-    double wpm = cpm / 5.0;
+    double wpm, cpm;
+    calc_speed(path, elapsed, &wpm, &cpm);
+
 
     /* Accuracy based on final text */
     size_t correct_chars = 0;
@@ -408,7 +449,7 @@ static void run_typing_trainer(const char *text)
     endwin();
 
     /* Save the score to file */
-    save_score(wpm, cpm, accuracy, consistency);
+    save_score(wpm, cpm, accuracy, consistency, path);
 
     free(typed);
 }
