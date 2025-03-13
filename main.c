@@ -132,7 +132,7 @@ static void usage(char* progname);
  */
 int main(int argc, char** argv)
 {
-    if (argc == 1) {
+    if (argc != 1) {
 	usage(argv[0]);
 	return 1;
     }
@@ -467,6 +467,7 @@ static void run_typing_trainer(char* path, const char *text)
 	 total_keystrokes) : 100.0;
 
     clear();
+    /* TODO: make accuracy of less than 90 red and otherwise green */
     mvprintw(0, 0, "Finished! WPM: %.2f   CPM: %.2f", wpm, cpm);
     mvprintw(1, 0, "Accuracy: %.2f%%   Consistency: %.2f%%", accuracy,
 	     consistency);
@@ -482,6 +483,6 @@ static void run_typing_trainer(char* path, const char *text)
 }
 
 void usage(char* progname) {
-	fprintf(stderr, "Usage: %s [args] <text>\n", progname);
+	fprintf(stderr, "Usage: %s [args]\n", progname);
 	exit(EXIT_FAILURE);
 }
