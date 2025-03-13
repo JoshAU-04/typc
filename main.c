@@ -390,16 +390,15 @@ static void run_typing_trainer(char* path, const char *text)
 	}
 
 	/* Display the remaining untyped text in dim white */
-	attron(COLOR_PAIR(2));
-	attron(A_DIM);
+	(void)attron(COLOR_PAIR(2));
+	(void)attron(A_DIM);
 	mvprintw(0, current_index - offset, "%.*s",
 		 screen_width - (current_index - offset),
 		 text + current_index);
-	attroff(A_DIM);
-	attroff(COLOR_PAIR(2));
+	(void)attroff(A_DIM);
+	(void)attroff(COLOR_PAIR(2));
 
-	refresh();
-	refresh();
+	(void)refresh();
 
 	ch = getch();
 	if (!started) {
