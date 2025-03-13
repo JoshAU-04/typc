@@ -498,6 +498,9 @@ static void run_typing_trainer(char *path, const char *text)
 
 void usage(char *progname)
 {
-    fprintf(stderr, "Usage: %s [args]\n", progname);
+    if (progname != NULL) {
+	fprintf(stderr, "Usage: %s [args]\n", progname);
+    }
+    free(progname);
     exit(EXIT_FAILURE);
 }
