@@ -1,3 +1,4 @@
+/* TODO: ability to pause tests (need to introduce TestState enum for this */
 #include <dirent.h>
 #include <limits.h>
 #include <ncurses.h>
@@ -101,9 +102,17 @@ static void save_score(double wpm, double cpm, double accuracy,
  * Horizontal scrolling is implemented so that the current position remains visible.
  * Backspace support allows corrections.
  * Upon completion, the function calculates and displays both the words-per-minute (WPM)
- * and the accuracy metric.
+ * characters-per-minute (CPM), and the accuracy metric.
  */
 static void run_typing_trainer(char *path, const char *text);
+
+/**
+ *usage - Print program usage.
+ * @progname: The program name
+ * 
+ * Send the program usage details into stderr pipe.
+ */
+static void usage(char* progname);
 
 /**
  * main - Entry point for the typing trainer program.
@@ -111,8 +120,13 @@ static void run_typing_trainer(char *path, const char *text);
  * Reads a random text file from the ENTRIES_DIR directory and launches the typing trainer.
  * Returns 0 on success, or a non-zero value on error.
  */
-int main(void)
+int main(int argc, char** argv)
 {
+    if (argc == 1) {
+	usage(argv[0]);
+	return 1;
+    }
+
     char *rand_file = NULL;
     char *file_contents = NULL;
     char *full_path = NULL;
@@ -321,7 +335,7 @@ static void save_score(double wpm, double cpm, double accuracy,
 	perror("fopen scores file");
 	return;
     }
-    /* Save score in CSV format: WPM,CPM,Accuracy,Consistency */
+    /* Save score in CSV format: WPM,CPM,Accuracy,Consistency,Path */
     fprintf(fp, "%.2f,%.2f,%.2f,%.2f,%s\n", wpm, cpm, accuracy, consistency, path);
     fclose(fp);
 }
@@ -451,4 +465,9 @@ static void run_typing_trainer(char* path, const char *text)
     save_score(wpm, cpm, accuracy, consistency, path);
 
     free(typed);
+}
+
+void usage(char* progname) {
+	fprintf(stderr, "Usage: %s [args] <text>\n", progname);
+	exit(EXIT_FAILURE);
 }
