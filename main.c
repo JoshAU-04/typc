@@ -11,6 +11,7 @@
 #define MAX_PATH_SIZE  (PATH_MAX)
 #define ENTRIES_DIR    "./texts"
 #define CHAR_OFFSET    20
+#define SCORES_FILE    "./data/scores.csv"
 
 /**
  * collect_dir_entries - Collect regular file entries from a directory.
@@ -57,14 +58,32 @@ static char *get_random_entry(char **files, size_t count);
 static void seed_rng(void);
 
 /**
+ * save_score - Save the typing test score to a file.
+ * @wpm: Words per minute.
+ * @cpm: Characters per minute.
+ * @accuracy: Accuracy in percentage.
+ * @consistency: Consistency in percentage.
+ *
+ * Opens the scores file (creating it if necessary) and appends a new line containing
+ * the WPM, CPM, accuracy, and consistency metrics, separated by commas.
+ */
+static void save_score(double wpm, double cpm, double accuracy,
+		       double consistency);
+
+
+/**
  * run_typing_trainer - Run an ncurses-based typing trainer.
  * @text: The text to be typed by the user.
  *
- * Uses ncurses to display the text for typing. The text already typed is shown
- * in white, while the text yet to be typed is shown in dim (grayish) style.
- * Implements horizontal scrolling so that the current character being typed is
- * always visible even when the text exceeds the screen width.
- * Once the user finishes typing, calculates and displays the words-per-minute (WPM) score.
+ * Uses ncurses to display the text for typing.
+ * The already typed text is displayed character-by-character:
+ * - Correct characters are shown in white.
+ * - Incorrect characters are shown in red.
+ * The untyped text is rendered in a dim (grayish) style.
+ * Horizontal scrolling is implemented so that the current position remains visible.
+ * Backspace support allows corrections.
+ * Upon completion, the function calculates and displays both the words-per-minute (WPM)
+ * and the accuracy metric.
  */
 static void run_typing_trainer(const char *text);
 
@@ -251,6 +270,19 @@ static void seed_rng(void)
     srand((unsigned int) time(NULL));
 }
 
+static void save_score(double wpm, double cpm, double accuracy,
+		       double consistency)
+{
+    FILE *fp = fopen(SCORES_FILE, "a");
+    if (!fp) {
+	perror("fopen scores file");
+	return;
+    }
+    /* Save score in CSV format: WPM,CPM,Accuracy,Consistency */
+    fprintf(fp, "%.2f,%.2f,%.2f,%.2f\n", wpm, cpm, accuracy, consistency);
+    fclose(fp);
+}
+
 static void run_typing_trainer(const char *text)
 {
     size_t total_chars = strlen(text);
@@ -259,6 +291,17 @@ static void run_typing_trainer(const char *text)
     time_t start_time = 0, end_time = 0;
     int started = 0;		/* flag: 0 = not started, 1 = started */
     int screen_width, offset;
+    size_t i;
+    /* Allocate a buffer for the user's input */
+    char *typed = malloc(total_chars + 1);
+    if (!typed)
+	return;
+    memset(typed, 0, total_chars + 1);
+
+    /* Counters for keystrokes and errors for consistency */
+    int total_keystrokes = 0;
+    int error_count = 0;
+
 
     /* Initialize ncurses */
     initscr();
@@ -270,29 +313,40 @@ static void run_typing_trainer(const char *text)
     /* Initialize colors if available */
     if (has_colors()) {
 	start_color();
-	/* Color pair 1: white on black for typed text */
+	/* Color pair 1: white on black for correct typed text */
 	init_pair(1, COLOR_WHITE, COLOR_BLACK);
 	/* Color pair 2: white on black for untyped text with dim attribute */
 	init_pair(2, COLOR_WHITE, COLOR_BLACK);
+	/* Color pair 3: red on black for incorrect typed text */
+	init_pair(3, COLOR_RED, COLOR_BLACK);
     }
 
-    /* Typing loop with horizontal scrolling */
+    /* Typing loop with horizontal scrolling and backspace support */
     while (current_index < total_chars) {
 	clear();
 	screen_width = getmaxx(stdscr);
-	/* Calculate offset so the current character is always visible */
+	/* Ensure the current position is visible */
 	offset =
 	    (current_index + CHAR_OFFSET <
 	     (size_t) screen_width) ? 0 : current_index - screen_width +
-	    CHAR_OFFSET;
+	    CHAR_OFFSET + 1;
 
-	/* Draw the text already typed in white (normal) */
-	attron(COLOR_PAIR(1));
-	mvprintw(0, 0, "%.*s", (int) (current_index - offset),
-		 text + offset);
-	attroff(COLOR_PAIR(1));
+	/* Display the already typed text */
+	for (i = offset; i < current_index; i++) {
+	    if (i >= total_chars)
+		break;
+	    if (typed[i] == text[i]) {
+		attron(COLOR_PAIR(1));
+		mvaddch(0, i - offset, typed[i]);
+		attroff(COLOR_PAIR(1));
+	    } else {
+		attron(COLOR_PAIR(3));
+		mvaddch(0, i - offset, typed[i]);
+		attroff(COLOR_PAIR(3));
+	    }
+	}
 
-	/* Draw the text yet to be typed in dim (grayish) */
+	/* Display the remaining untyped text in dim white */
 	attron(COLOR_PAIR(2));
 	attron(A_DIM);
 	mvprintw(0, current_index - offset, "%.*s",
@@ -302,31 +356,59 @@ static void run_typing_trainer(const char *text)
 	attroff(COLOR_PAIR(2));
 
 	refresh();
+	refresh();
 
 	ch = getch();
 	if (!started) {
 	    start_time = time(NULL);
 	    started = 1;
 	}
-	if ((unsigned char) ch == (unsigned char) text[current_index]) {
+	if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+	    if (current_index > 0)
+		current_index--;
+	} else if (ch >= 32 && ch <= 126) {	/* Printable characters */
+	    total_keystrokes++;
+	    typed[current_index] = (char) ch;
+	    if ((unsigned char) ch != (unsigned char) text[current_index])
+		error_count++;
 	    current_index++;
-	} else {
-	    beep();
 	}
     }
     end_time = time(NULL);
 
-    /* Calculate WPM: assume 5 characters per word */
-    {
-	double elapsed = difftime(end_time, start_time);
-	if (elapsed <= 0)
-	    elapsed = 1;	/* avoid division by zero */
-	double wpm = ((double) total_chars / 5.0) * (60.0 / elapsed);
-	clear();
-	mvprintw(0, 0, "Finished! WPM: %.2f", wpm);
-	mvprintw(2, 0, "Press any key to exit...");
-	refresh();
-	getch();
+    /* Calculate elapsed time (in seconds), WPM, CPM, and accuracy */
+    double elapsed = difftime(end_time, start_time);
+    if (elapsed <= 0)
+	elapsed = 1;		/* avoid division by zero */
+    double cpm = ((double) total_chars / elapsed) * 60.0;
+    /* FIXME: each word isn't necessarily 5.0 and should therefore be
+     * calculated individually.
+     */
+    double wpm = cpm / 5.0;
+
+    /* Accuracy based on final text */
+    size_t correct_chars = 0;
+    for (i = 0; i < total_chars; i++) {
+	if (typed[i] == text[i])
+	    correct_chars++;
     }
+    double accuracy = ((double) correct_chars * 100.0) / total_chars;
+    /* Consistency: penalize mistakes even if corrected */
+    double consistency = total_keystrokes > 0 ?
+	((double) (total_keystrokes - error_count) * 100.0 /
+	 total_keystrokes) : 100.0;
+
+    clear();
+    mvprintw(0, 0, "Finished! WPM: %.2f   CPM: %.2f", wpm, cpm);
+    mvprintw(1, 0, "Accuracy: %.2f%%   Consistency: %.2f%%", accuracy,
+	     consistency);
+    mvprintw(3, 0, "Press any key to exit...");
+    refresh();
+    getch();
     endwin();
+
+    /* Save the score to file */
+    save_score(wpm, cpm, accuracy, consistency);
+
+    free(typed);
 }
