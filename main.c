@@ -14,6 +14,17 @@
 #define CHAR_OFFSET    20
 #define SCORES_FILE    "./data/scores.csv"
 
+/*
+ * Easier visual on error
+ *
+ * Show character that needs to be typed instead of character thats typed.
+ * This makes it easier to see the stuff that actually needs to be corrected.
+ *
+ * For instance "foo" (correct) typed as "fob" (incorrect) would still show "foo"
+ * but the last letter would be red.
+ */
+#define HIDE_ERR       true
+
 /**
  * collect_dir_entries - Collect regular file entries from a directory.
  * @path: Path to the directory.
@@ -397,7 +408,11 @@ static void run_typing_trainer(char* path, const char *text)
 		attroff(COLOR_PAIR(1));
 	    } else {
 		attron(COLOR_PAIR(3));
-		mvaddch(0, i - offset, text[i]);
+		if (HIDE_ERR) {
+		    mvaddch(0, i - offset, text[i]);
+		} else {
+		    mvaddch(0, i - offset, typed[i]);
+		}
 		attroff(COLOR_PAIR(3));
 	    }
 	}
