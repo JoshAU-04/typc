@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
@@ -31,6 +32,7 @@
 #define REGULAR_FILE   DT_REG
 #define MAX_PATH_SIZE  (PATH_MAX)
 #define ENTRIES_DIR    "/usr/local/lib/typc/texts"
+#define DEF_AVG_WORDLEN 5
 
 /* scores file (prefixed by $HOME) */
 static char *scores_file = ".local/state/typc/data.csv";
@@ -172,6 +174,18 @@ static void seed_rng(void);
 static void save_score(double wpm, double cpm, double accuracy,
 		       double consistency, char *path);
 
+
+/**
+ * average_word_length - Calculate average word length from string.
+ *
+ * Used in calculating text metrics.
+ *
+ * @s: String taken from file contents.
+ *
+ * @see read_file
+ */
+static double average_word_length(const char *s);
+
 /**
  * run_typing_trainer - Run an ncurses-based typing trainer.
  * @path: Path to the file containing the text.
@@ -255,7 +269,6 @@ int main(int argc, char **argv)
 	return 1;
     }
 
-    /* Launch the typing trainer interface */
     run_typing_trainer(full_path, file_contents);
 
     free(file_contents);
@@ -312,6 +325,7 @@ int create_data_csv(void)
 	fprintf(stderr, "Error: HOME environment variable is not set.\n");
 	return -1;
     }
+
     /* Construct the full path to the data.csv file. */
     char path[PATH_MAX];
     snprintf(path, sizeof(path), "%s/%s", home_dir, scores_file);
@@ -335,7 +349,6 @@ int create_data_csv(void)
     }
     free(dir_path);
 
-    /* Open the file in append mode (creates it if it doesn't exist). */
     FILE *file = fopen(path, "a");
     if (file == NULL) {
 	perror("fopen");
@@ -405,6 +418,38 @@ char *read_file(const char *path)
     return buffer;
 }
 
+
+double average_word_length(const char *s)
+{
+    if (s == NULL) {
+	return DEF_AVG_WORDLEN;
+    }
+
+    size_t total_length = 0;
+    size_t word_count = 0;
+    int in_word = 0;
+
+    while (*s) {
+	if (isspace((unsigned char) *s)) {
+	    if (in_word) {
+		word_count++;
+		in_word = 0;
+	    }
+	} else {
+	    total_length++;
+	    in_word = 1;
+	}
+	s++;
+    }
+
+    if (in_word) {
+	word_count++;
+    }
+
+    return word_count ? ((double) total_length / word_count) : 0.0;
+}
+
+
 void calc_speed(const char *filename, double elapsed, double *wpm,
 		double *cpm)
 {
@@ -426,7 +471,7 @@ void calc_speed(const char *filename, double elapsed, double *wpm,
     fclose(file);
 
     *cpm = ((double) total_chars / elapsed) * 60.0;
-    *wpm = *cpm / 5.0;		/* Assuming average word length is 5 characters */
+    *wpm = *cpm / average_word_length(read_file(filename));
 }
 
 char *random_file_from_dir(void)
