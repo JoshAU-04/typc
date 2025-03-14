@@ -276,11 +276,11 @@ int __create_directories(const char *path)
 	free(tmp);
 	return 0;
     }
-    // Remove trailing slash, if any.
+    /* Remove trailing slash, if any. */
     if (tmp[len - 1] == '/') {
 	tmp[len - 1] = '\0';
     }
-    // Create each directory component in the path.
+    /* Create each directory component in the path. */
     for (char *p = tmp + 1; *p; p++) {
 	if (*p == '/') {
 	    *p = '\0';
@@ -293,7 +293,7 @@ int __create_directories(const char *path)
 	}
     }
 
-    // Create the final directory.
+    /* Create the final directory. */
     if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
 	perror("mkdir");
 	free(tmp);
@@ -312,13 +312,13 @@ int create_data_csv(void)
 	fprintf(stderr, "Error: HOME environment variable is not set.\n");
 	return -1;
     }
-    // Construct the full path to the data.csv file.
+    /* Construct the full path to the data.csv file. */
     char path[PATH_MAX];
     snprintf(path, sizeof(path), "%s/%s", home_dir, scores_file);
 
     scores_file = path;
 
-    // Extract the directory path by removing the file name.
+    /* Extract the directory path by removing the file name. */
     char *dir_path = strdup(path);
     if (dir_path == NULL) {
 	perror("strdup");
@@ -328,14 +328,14 @@ int create_data_csv(void)
     if (last_slash != NULL) {
 	*last_slash = '\0';
     }
-    // Create the necessary directories.
+    /* Create the necessary directories. */
     if (__create_directories(dir_path) != 0) {
 	free(dir_path);
 	return -1;
     }
     free(dir_path);
 
-    // Open the file in append mode (creates it if it doesn't exist).
+    /* Open the file in append mode (creates it if it doesn't exist). */
     FILE *file = fopen(path, "a");
     if (file == NULL) {
 	perror("fopen");
