@@ -1,6 +1,9 @@
 all: build
 
-build: main.c
-	cc -W $< -lncurses
+install: all
+	./INSTALL
 
-.PHONY: build
+build: main.c
+	cc -W $< -lncurses -o typc
+
+.PHONY: all install build

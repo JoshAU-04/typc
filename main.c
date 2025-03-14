@@ -1,18 +1,22 @@
 /* Copyright 2025 Joshua Rose <joshuarose@gmx.com> */
+#include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <limits.h>
 #include <ncurses.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
-#include <ctype.h>
 
 #define REGULAR_FILE   DT_REG
 #define MAX_PATH_SIZE  (PATH_MAX)
-#define ENTRIES_DIR    "./texts"
-#define SCORES_FILE    "./data/scores.csv"
+#define ENTRIES_DIR    "/usr/local/lib/typc/texts"
+
+/* scores file (prefixed by $HOME) */
+static char *scores_file = ".local/state/typc/data.csv";
 
 /* When in 'tty mode' (teletype mode) where text is scrolling, this is the
  * amount of characters that are shown from the position of the current cursor
@@ -20,13 +24,20 @@
  */
 static int char_offset = 20;
 
+/* Can be modified with --debug */
+static int debug = 0;
+
+/* Home dir value. Used for saving to csv files and other stuff. Needs to be
+ * static as it's accessed by multiple other static functions */
+static char *home_dir;
+
 /* minimal printable char */
 #define PRINT_CHAR_MIN 32
 
 /* maximal printable char */
 #define PRINT_CHAR_MAX 126
 
-/*
+/**
  * Easier visual on error
  *
  * Show character that needs to be typed instead of the character that was typed.
@@ -35,6 +46,29 @@ static int char_offset = 20;
 
 /* Global flag to control text wrapping mode */
 static int wrap_mode = 0;
+
+/**
+ * Draw wrapped text. I.e. show all the text that can be possibly shown within
+ * the contraints of the width and height of the terminal display. This is with
+ * the --wrap option. By default the --wrap option if not toggled on.
+ */
+static void draw_wrapped(const char *text, int total_chars,
+		  int screen_width, char *typed, int current_index);
+
+/**
+ * @draw_scrolled - Draw scrolled text.
+ *
+ * @text - The text to draw.
+ * @total_chars - The total number of chars in the text
+ * @i - The current index
+ * @screen_width - self explainatory
+ * @typed - chars already typed. Should be none.
+ * @current_index - chars already typed. Should be none.
+ *
+ */
+static void draw_scrolled(const char *text, int total_chars, size_t i,
+			  int screen_width, char *typed,
+			  int current_index);
 
 /**
  * collect_dir_entries - Collect regular file entries from a directory.
@@ -61,6 +95,18 @@ static char **collect_dir_entries(const char *path, size_t *count);
  */
 static void calc_speed(const char *filename, double elapsed, double *wpm,
 		       double *cpm);
+/*
+ * create_or_append() extracts the directory part of 'filepath',
+ * creates it (and any missing parent directories), and then opens
+ * the file in append mode to write 'info' into it.
+ */
+static int create_or_append(const char *filepath, const char *info);
+
+/**
+ * Creates the file $HOME/.local/state/typc/data.csv, including all parent directories.
+ * Returns 0 on success, -1 on failure.
+ */
+static int create_data_csv(void);
 
 /**
  * random_file_from_dir - Select a random file from the directory.
@@ -145,13 +191,16 @@ static void usage(char *progname);
 int main(int argc, char **argv)
 {
     /* Allow zero or one argument: optional "--wrap" */
-    if (argc > 2) {
+    if (argc > 3) {
 	usage(argv[0]);
 	return 1;
     }
-    if (argc == 2) {
-	if (strcmp(argv[1], "--wrap") == 0) {
+
+    for (int i = 1; i < argc; i++) {
+	if (strcmp(argv[i], "--wrap") == 0) {
 	    wrap_mode = 1;
+	} else if (strcmp(argv[1], "--debug") == 0) {
+	    debug = 1;
 	} else {
 	    usage(argv[0]);
 	    return 1;
@@ -173,22 +222,18 @@ int main(int argc, char **argv)
     full_path = malloc(MAX_PATH_SIZE);
     if (!full_path) {
 	perror("malloc");
-	if (rand_file != NULL) {
-	    free(rand_file);
-	}
 	return 1;
     }
     snprintf(full_path, MAX_PATH_SIZE, "%s/%s", ENTRIES_DIR, rand_file);
-    fprintf(stdout, "[debug] reading %s\n", full_path);
+    if (debug == 1) {
+	fprintf(stdout, "[debug] reading %s\n", full_path);
+    }
 
     file_contents = read_file(full_path);
     if (!file_contents) {
 	perror("read_file");
 	if (full_path != NULL) {
 	    free(full_path);
-	}
-	if (rand_file != NULL) {
-	    free(rand_file);
 	}
 	return 1;
     }
@@ -198,11 +243,142 @@ int main(int argc, char **argv)
 
     free(file_contents);
     free(full_path);
-    free(rand_file);
     return 0;
 }
 
-static char *read_file(const char *path)
+int mkpath(const char *dir, mode_t mode)
+{
+    char *tmp = strdup(dir);
+    if (tmp == NULL) {
+	perror("strdup");
+	return -1;
+    }
+
+    size_t len = strlen(tmp);
+    if (len == 0) {
+	free(tmp);
+	return 0;
+    }
+    // Remove trailing slash, if any.
+    if (tmp[len - 1] == '/') {
+	tmp[len - 1] = '\0';
+    }
+    // Create each directory component in the path.
+    for (char *p = tmp + 1; *p; p++) {
+	if (*p == '/') {
+	    *p = '\0';
+	    if (mkdir(tmp, mode) != 0) {
+		if (errno != EEXIST) {
+		    perror(tmp);
+		    free(tmp);
+		    return -1;
+		}
+	    }
+	    *p = '/';
+	}
+    }
+
+    // Create the final directory.
+    if (mkdir(tmp, mode) != 0) {
+	if (errno != EEXIST) {
+	    perror(tmp);
+	    free(tmp);
+	    return -1;
+	}
+    }
+
+    free(tmp);
+    return 0;
+}
+
+int __create_directories(const char *path)
+{
+    char *tmp = strdup(path);
+    if (tmp == NULL) {
+	perror("strdup");
+	return -1;
+    }
+
+    size_t len = strlen(tmp);
+    if (len == 0) {
+	free(tmp);
+	return 0;
+    }
+    // Remove trailing slash, if any.
+    if (tmp[len - 1] == '/') {
+	tmp[len - 1] = '\0';
+    }
+    // Create each directory component in the path.
+    for (char *p = tmp + 1; *p; p++) {
+	if (*p == '/') {
+	    *p = '\0';
+	    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+		perror("mkdir");
+		free(tmp);
+		return -1;
+	    }
+	    *p = '/';
+	}
+    }
+
+    // Create the final directory.
+    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+	perror("mkdir");
+	free(tmp);
+	return -1;
+    }
+
+    free(tmp);
+    return 0;
+}
+
+int create_data_csv(void)
+{
+
+    home_dir = getenv("HOME");
+    if (home_dir == NULL) {
+	fprintf(stderr, "Error: HOME environment variable is not set.\n");
+	return -1;
+    }
+    // Construct the full path to the data.csv file.
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "%s/%s", home_dir, scores_file);
+
+    scores_file = path;
+
+    // Extract the directory path by removing the file name.
+    char *dir_path = strdup(path);
+    if (dir_path == NULL) {
+	perror("strdup");
+	return -1;
+    }
+    char *last_slash = strrchr(dir_path, '/');
+    if (last_slash != NULL) {
+	*last_slash = '\0';
+    }
+    // Create the necessary directories.
+    if (__create_directories(dir_path) != 0) {
+	free(dir_path);
+	return -1;
+    }
+    free(dir_path);
+
+    // Open the file in append mode (creates it if it doesn't exist).
+    FILE *file = fopen(path, "a");
+    if (file == NULL) {
+	perror("fopen");
+	return -1;
+    }
+    fclose(file);
+
+    if (debug == 1) {
+	fprintf(stderr, "[debug] File created or already exists: %s\n",
+		path);
+    }
+    return 0;
+}
+
+char *read_file(const char *path)
 {
     char *buffer = NULL;
     long length;
@@ -257,8 +433,8 @@ static char *read_file(const char *path)
     return buffer;
 }
 
-static void calc_speed(const char *filename, double elapsed, double *wpm,
-		       double *cpm)
+void calc_speed(const char *filename, double elapsed, double *wpm,
+		double *cpm)
 {
     FILE *file = fopen(filename, "r");
     if (!file) {
@@ -281,7 +457,7 @@ static void calc_speed(const char *filename, double elapsed, double *wpm,
     *wpm = *cpm / 5.0;		/* Assuming average word length is 5 characters */
 }
 
-static char *random_file_from_dir(void)
+char *random_file_from_dir(void)
 {
     size_t file_count = 0;
     char **entries = collect_dir_entries(ENTRIES_DIR, &file_count);
@@ -305,13 +481,13 @@ static char *random_file_from_dir(void)
     return selected;
 }
 
-static char *get_random_entry(char **files, size_t count)
+char *get_random_entry(char **files, size_t count)
 {
     size_t random_index = (size_t) (rand() % count);
     return files[random_index];
 }
 
-static char **collect_dir_entries(const char *path, size_t *count)
+char **collect_dir_entries(const char *path, size_t *count)
 {
     struct dirent *dent;
     DIR *dir;
@@ -358,15 +534,27 @@ static char **collect_dir_entries(const char *path, size_t *count)
     return file_array;
 }
 
-static void seed_rng(void)
+void seed_rng(void)
 {
     srand((unsigned int) time(NULL));
 }
 
-static void save_score(double wpm, double cpm, double accuracy,
-		       double consistency, char *path)
+void save_score(double wpm, double cpm, double accuracy,
+		double consistency, char *path)
 {
-    FILE *fp = fopen(SCORES_FILE, "a");
+    if (create_data_csv() != 0) {
+	fprintf(stderr, "Failed to create data csv path %s/%s",
+		home_dir, scores_file);
+	if (path != NULL) {
+	    free(path);
+	}
+	if (home_dir != NULL) {
+	    free(home_dir);
+	}
+	exit(EXIT_FAILURE);
+    }
+
+    FILE *fp = fopen(scores_file, "a");
     if (!fp) {
 	perror("fopen scores file");
 	return;
@@ -377,7 +565,64 @@ static void save_score(double wpm, double cpm, double accuracy,
     fclose(fp);
 }
 
-static void run_typing_trainer(char *path, const char *text)
+void draw_scrolled(const char *text, int total_chars, size_t i,
+		   int screen_width, char *typed, int current_index)
+{
+    /* Original horizontal scrolling mode */
+    int offset = (current_index + char_offset < screen_width)
+	? 0 : current_index - screen_width + char_offset + 1;
+
+    for (i = offset; (int) i < current_index; i++) {
+	if ((int) i >= total_chars)
+	    break;
+	if (typed[i] == text[i]) {
+	    attron(COLOR_PAIR(1));
+	    mvaddch(0, i - offset, typed[i]);
+	    attroff(COLOR_PAIR(1));
+	} else {
+	    attron(COLOR_PAIR(3));
+	    mvaddch(0, i - offset, HIDE_ERR ? text[i] : typed[i]);
+	    attroff(COLOR_PAIR(3));
+	}
+    }
+    attron(COLOR_PAIR(2));
+    attron(A_DIM);
+    mvprintw(0, current_index - offset, "%.*s",
+	     screen_width - (current_index - offset),
+	     text + current_index);
+    attroff(A_DIM);
+    attroff(COLOR_PAIR(2));
+}
+
+void draw_wrapped(const char *text, int total_chars,
+		  int screen_width, char *typed, int current_index)
+{
+    /* In wrap mode, use fixed width wrapping */
+    for (int i = 0; i < total_chars; i++) {
+	int row = i / screen_width;
+	int col = i % screen_width;
+	if (i < current_index) {
+	    if (typed[i] == text[i]) {
+		attron(COLOR_PAIR(1));
+		mvaddch(row, col, typed[i]);
+		attroff(COLOR_PAIR(1));
+	    } else {
+		attron(COLOR_PAIR(3));
+		/* If HIDE_ERR is true, show expected char */
+		mvaddch(row, col, HIDE_ERR ? text[i] : typed[i]);
+		attroff(COLOR_PAIR(3));
+	    }
+	} else {
+	    attron(COLOR_PAIR(2));
+	    attron(A_DIM);
+	    mvaddch(row, col, text[i]);
+	    attroff(A_DIM);
+	    attroff(COLOR_PAIR(2));
+	}
+    }
+}
+
+void run_typing_trainer(char *path, const char *text)
 {
     size_t total_chars = strlen(text);
     size_t current_index = 0;
@@ -385,7 +630,7 @@ static void run_typing_trainer(char *path, const char *text)
     time_t start_time = 0, end_time = 0;
     int started = 0;		/* 0 = not started, 1 = started */
     int screen_width;
-    size_t i;
+    size_t i = 0;
     /* Allocate buffer for user's input */
     char *typed = malloc(total_chars + 1);
     if (!typed)
@@ -421,54 +666,11 @@ static void run_typing_trainer(char *path, const char *text)
 	screen_width = getmaxx(stdscr);
 
 	if (wrap_mode) {
-	    /* In wrap mode, use fixed width wrapping */
-	    for (i = 0; i < total_chars; i++) {
-		int row = i / screen_width;
-		int col = i % screen_width;
-		if (i < current_index) {
-		    if (typed[i] == text[i]) {
-			attron(COLOR_PAIR(1));
-			mvaddch(row, col, typed[i]);
-			attroff(COLOR_PAIR(1));
-		    } else {
-			attron(COLOR_PAIR(3));
-			/* If HIDE_ERR is true, show expected char */
-			mvaddch(row, col, HIDE_ERR ? text[i] : typed[i]);
-			attroff(COLOR_PAIR(3));
-		    }
-		} else {
-		    attron(COLOR_PAIR(2));
-		    attron(A_DIM);
-		    mvaddch(row, col, text[i]);
-		    attroff(A_DIM);
-		    attroff(COLOR_PAIR(2));
-		}
-	    }
+	    draw_wrapped(text, total_chars, screen_width, typed,
+			 current_index);
 	} else {
-	    /* Original horizontal scrolling mode */
-	    int offset = (current_index + char_offset < screen_width)
-		? 0 : current_index - screen_width + char_offset + 1;
-
-	    for (i = offset; i < current_index; i++) {
-		if (i >= total_chars)
-		    break;
-		if (typed[i] == text[i]) {
-		    attron(COLOR_PAIR(1));
-		    mvaddch(0, i - offset, typed[i]);
-		    attroff(COLOR_PAIR(1));
-		} else {
-		    attron(COLOR_PAIR(3));
-		    mvaddch(0, i - offset, HIDE_ERR ? text[i] : typed[i]);
-		    attroff(COLOR_PAIR(3));
-		}
-	    }
-	    attron(COLOR_PAIR(2));
-	    attron(A_DIM);
-	    mvprintw(0, current_index - offset, "%.*s",
-		     screen_width - (current_index - offset),
-		     text + current_index);
-	    attroff(A_DIM);
-	    attroff(COLOR_PAIR(2));
+	    draw_scrolled(text, total_chars, i, screen_width, typed,
+			  current_index);
 	}
 
 	refresh();
@@ -525,11 +727,10 @@ static void run_typing_trainer(char *path, const char *text)
     }
 }
 
-static void usage(char *progname)
+void usage(char *progname)
 {
     if (progname != NULL) {
-	fprintf(stderr, "Usage: %s [--wrap]\n", progname);
-	free(progname);
+	fprintf(stderr, "Usage: %s [--wrap] [--debug]\n", progname);
     }
     exit(EXIT_FAILURE);
 }

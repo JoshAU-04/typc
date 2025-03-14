@@ -1,0 +1,24 @@
+#!/bin/bash
+# install.sh: Installs typc and its resource directory.  be run from anywhere.
+# The binary is installed to PREFIX (default: /usr/local/lib/typc)
+# and a symlink is created in LINKDIR (default: /usr/local/bin).
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Set default installation directories; these can be overridden by environment variables.
+PREFIX=${PREFIX:-/usr/local/lib/typc}
+BIN_NAME=${BIN_NAME:-typc}
+INSTALL_BIN="${PREFIX}/${BIN_NAME}"
+INSTALL_TEXTS="${PREFIX}/texts"
+LINKDIR=${LINKDIR:-/usr/local/bin}
+
+echo "Installing binary to ${INSTALL_BIN}..."
+install -D "${SCRIPT_DIR}/typc" "${INSTALL_BIN}" || { echo "Error installing binary"; exit 1; }
+
+echo "Copying texts directory to ${INSTALL_TEXTS}..."
+cp -rv "${SCRIPT_DIR}/texts" "${INSTALL_TEXTS}" || { echo "Error copying texts directory"; exit 1; }
+
+echo "Creating symlink at ${LINKDIR}/${BIN_NAME}..."
+ln -sf "${INSTALL_BIN}" "${LINKDIR}/${BIN_NAME}" || { echo "Error creating symlink"; exit 1; }
+
+echo "Installed ${INSTALL_BIN}."
