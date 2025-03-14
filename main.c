@@ -12,8 +12,15 @@
 #define REGULAR_FILE   DT_REG
 #define MAX_PATH_SIZE  (PATH_MAX)
 #define ENTRIES_DIR    "./texts"
-#define CHAR_OFFSET    20
 #define SCORES_FILE    "./data/scores.csv"
+
+/* When in 'tty mode' (teletype mode) where text is scrolling, this is the
+ * amount of characters that are shown from the position of the current cursor
+ * to the position of the end of the screen. i.e. how many untyped characters
+ * are shown in advance. This can be thought of as a 'word preview' or
+ * 'character preview' as well.
+ */
+static int char_offset = 20;
 
 /* minimal printable char */
 #define PRINT_CHAR_MIN 32
@@ -402,9 +409,9 @@ static void run_typing_trainer(char *path, const char *text)
 	screen_width = getmaxx(stdscr);
 	/* Ensure the current position is visible */
 	offset =
-	    (current_index + CHAR_OFFSET <
+	    (current_index + char_offset <
 	     (size_t) screen_width) ? 0 : current_index - screen_width +
-	    CHAR_OFFSET + 1;
+	    char_offset + 1;
 
 	/* Display the already typed text */
 	for (i = offset; i < current_index; i++) {
