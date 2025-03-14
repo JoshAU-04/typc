@@ -570,7 +570,7 @@ void seed_rng(void)
 void save_score(double wpm, double cpm, double accuracy,
 		double consistency, char *path)
 {
-    FILE* fp;
+    FILE *fp;
     if (create_data_csv() != 0) {
 	fprintf(stderr, "Failed to create data csv path %s/%s",
 		home_dir, scores_file);
@@ -659,7 +659,7 @@ void run_typing_trainer(char *path, const char *text)
     int started;
     int screen_width;
     size_t i;
-    char* typed;
+    char *typed;
     int total_keystrokes;
     int error_count;
     double elapsed;
