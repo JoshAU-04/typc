@@ -193,20 +193,20 @@ static char *read_file(const char *path)
     }
 
     if (fseek(f, 0, SEEK_END) != 0) {
-	perror("fseek");
+	perror("Error seeking EOF");
 	fclose(f);
 	return NULL;
     }
 
     length = ftell(f);
     if (length < 0) {
-	perror("ftell");
+	perror("Error geting file length");
 	fclose(f);
 	return NULL;
     }
 
     if (fseek(f, 0, SEEK_SET) != 0) {
-	perror("fseek");
+	perror("Error seeking to start of file");
 	fclose(f);
 	return NULL;
     }
@@ -214,13 +214,13 @@ static char *read_file(const char *path)
     /* Allocate extra byte for null terminator */
     buffer = malloc((size_t) length + 1);
     if (!buffer) {
-	perror("malloc");
+	perror("Error allocating buffer");
 	fclose(f);
 	return NULL;
     }
 
     if (fread(buffer, 1, (size_t) length, f) != (size_t) length) {
-	perror("fread");
+	perror("Error reading file");
 	free(buffer);
 	fclose(f);
 	return NULL;
@@ -228,7 +228,7 @@ static char *read_file(const char *path)
     buffer[length] = '\0';
 
     if (fclose(f) != 0) {
-	perror("fclose");
+	perror("Error closing file");
 	free(buffer);
 	return NULL;
     }
