@@ -35,7 +35,7 @@ correctly multiplied by 100. This is then divided by the total amount of
 characters in the text.
 
 $$
-accuracy = \frac{correct~characters \cdot 100}{total~characters}
+accuracy = \frac{correct\text{ }characters \cdot 100}{total\text{ }characters}
 $$
 
 #### Consistency
