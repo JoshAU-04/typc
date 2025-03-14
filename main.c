@@ -499,7 +499,7 @@ void usage(char *progname)
 {
     if (progname != NULL) {
 	fprintf(stderr, "Usage: %s [args]\n", progname);
+	free(progname);
     }
-    free(progname);
     exit(EXIT_FAILURE);
 }
