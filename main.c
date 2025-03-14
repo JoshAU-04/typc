@@ -31,27 +31,11 @@
 #include <sys/stat.h>
 #include <time.h>
 
-#define DT_REG 8
-#define REGULAR_FILE   DT_REG
-#define MAX_PATH_SIZE  (PATH_MAX)
-#define ENTRIES_DIR    "/usr/local/lib/typc/texts"
 #define DEF_AVG_WORDLEN 5
-
-/* scores file (prefixed by $HOME) */
-static char *scores_file = ".local/state/typc/data.csv";
-
-/* When in 'tty mode' (teletype mode) where text is scrolling, this is the
- * amount of characters that are shown from the position of the current cursor
- * to the position of the end of the screen.
- */
-static int char_offset = 20;
-
-/* Can be modified with --debug */
-static int debug = 0;
-
-/* Home dir value. Used for saving to csv files and other stuff. Needs to be
- * static as it's accessed by multiple other static functions */
-static char *home_dir;
+#define DT_REG         8
+#define ENTRIES_DIR    "/usr/local/lib/typc/texts"
+#define MAX_PATH_SIZE  (PATH_MAX)
+#define REGULAR_FILE   DT_REG
 
 /* minimal printable char */
 #define PRINT_CHAR_MIN 32
@@ -65,9 +49,6 @@ static char *home_dir;
  * Show character that needs to be typed instead of the character that was typed.
  */
 #define HIDE_ERR       true
-
-/* Global flag to control text wrapping mode */
-static int wrap_mode = 0;
 
 /**
  * Draw wrapped text. I.e. show all the text that can be possibly shown within
@@ -171,7 +152,6 @@ static void seed_rng(void);
 static void save_score(double wpm, double cpm, double accuracy,
 		       double consistency, char *path);
 
-
 /**
  * average_word_length - Calculate average word length from string.
  *
@@ -209,7 +189,6 @@ static void run_typing_trainer(char *path, const char *text);
  */
 static void usage(char *progname);
 
-
 /**
  * Construct directory from path.
  *
@@ -220,6 +199,25 @@ static void usage(char *progname);
  */
 static int __create_directories(const char *path);
 
+/* scores file (prefixed by $HOME) */
+static char *scores_file = ".local/state/typc/data.csv";
+
+/* When in 'tty mode' (teletype mode) where text is scrolling, this is the
+ * amount of characters that are shown from the position of the current cursor
+ * to the position of the end of the screen.
+ */
+static int char_offset = 20;
+
+/* Can be modified with --debug */
+static int debug = 0;
+
+/* Home dir value. Used for saving to csv files and other stuff. Needs to be
+ * static as it's accessed by multiple other static functions */
+static char *home_dir;
+
+/* Global flag to control text wrapping mode */
+static int wrap_mode = 0;
+
 /**
  * main - Entry point for the typing trainer program.
  *
@@ -229,6 +227,10 @@ static int __create_directories(const char *path);
  */
 int main(int argc, char **argv)
 {
+    char *rand_file = NULL;
+    char *file_contents = NULL;
+    char *full_path = NULL;
+
     /* Allow zero or one argument: optional "--wrap" */
     if (argc > 3) {
 	usage(argv[0]);
@@ -245,10 +247,6 @@ int main(int argc, char **argv)
 	    return 1;
 	}
     }
-
-    char *rand_file = NULL;
-    char *file_contents = NULL;
-    char *full_path = NULL;
 
     seed_rng();
 
@@ -286,13 +284,15 @@ int main(int argc, char **argv)
 
 int __create_directories(const char *path)
 {
+    size_t len;
     char *tmp = strdup(path);
+    char *p;
     if (tmp == NULL) {
 	perror("strdup");
 	return -1;
     }
 
-    size_t len = strlen(tmp);
+    len = strlen(tmp);
     if (len == 0) {
 	free(tmp);
 	return 0;
@@ -302,7 +302,7 @@ int __create_directories(const char *path)
 	tmp[len - 1] = '\0';
     }
     /* Create each directory component in the path. */
-    for (char *p = tmp + 1; *p; p++) {
+    for (p = tmp + 1; *p; p++) {
 	if (*p == '/') {
 	    *p = '\0';
 	    if (mkdir(tmp, 0755) != 0 && errno != EEXIST) {
@@ -328,35 +328,39 @@ int __create_directories(const char *path)
 int create_data_csv(void)
 {
 
+    static char path[PATH_MAX];	/* path to the data.csv file */
+    char *dir_path;		/* path to data.csv file without file name */
+    char *last_slash;
+    FILE *file;
+
     home_dir = getenv("HOME");
     if (home_dir == NULL) {
 	fprintf(stderr, "Error: HOME environment variable is not set.\n");
 	return -1;
     }
 
-    /* Construct the full path to the data.csv file. */
-    static char path[PATH_MAX];
+    /* construct path */
     snprintf(path, sizeof(path), "%s/%s", home_dir, scores_file);
     scores_file = path;
 
-    /* Extract the directory path by removing the file name. */
-    char *dir_path = strdup(path);
+    dir_path = strdup(path);
     if (dir_path == NULL) {
 	perror("strdup");
 	return -1;
     }
-    char *last_slash = strrchr(dir_path, '/');
+
+    last_slash = strrchr(dir_path, '/');
     if (last_slash != NULL) {
 	*last_slash = '\0';
     }
-    /* Create the necessary directories. */
+
     if (__create_directories(dir_path) != 0) {
 	free(dir_path);
 	return -1;
     }
     free(dir_path);
 
-    FILE *file = fopen(path, "a");
+    file = fopen(path, "a");
     if (file == NULL) {
 	perror("fopen");
 	return -1;
@@ -372,8 +376,8 @@ int create_data_csv(void)
 
 char *read_file(const char *path)
 {
-    char *buffer = NULL;
-    long length;
+    char *buffer = NULL;	/* file buffer */
+    long length;		/* file length */
     FILE *f = fopen(path, "rb");
 
     if (!f) {
@@ -428,13 +432,13 @@ char *read_file(const char *path)
 
 double average_word_length(const char *s)
 {
-    if (s == NULL) {
-	return DEF_AVG_WORDLEN;
-    }
-
     size_t total_length = 0;
     size_t word_count = 0;
     int in_word = 0;
+
+    if (s == NULL) {
+	return DEF_AVG_WORDLEN;
+    }
 
     while (*s) {
 	if (isspace((unsigned char) *s)) {
@@ -460,14 +464,14 @@ double average_word_length(const char *s)
 void calc_speed(const char *filename, double elapsed, double *wpm,
 		double *cpm)
 {
+    int ch;
     FILE *file = fopen(filename, "r");
+    int total_chars = 0;
+
     if (!file) {
 	perror("Error opening file");
 	exit(EXIT_FAILURE);
     }
-
-    int total_chars = 0;
-    int ch;
 
     /* Count only non-whitespace characters */
     while ((ch = fgetc(file)) != EOF) {
@@ -566,6 +570,7 @@ void seed_rng(void)
 void save_score(double wpm, double cpm, double accuracy,
 		double consistency, char *path)
 {
+    FILE* fp;
     if (create_data_csv() != 0) {
 	fprintf(stderr, "Failed to create data csv path %s/%s",
 		home_dir, scores_file);
@@ -575,7 +580,7 @@ void save_score(double wpm, double cpm, double accuracy,
 	exit(EXIT_FAILURE);
     }
 
-    FILE *fp = fopen(scores_file, "a");
+    fp = fopen(scores_file, "a");
     if (!fp) {
 	perror("fopen scores file");
 	return;
@@ -618,10 +623,12 @@ void draw_scrolled(const char *text, int total_chars, size_t i,
 void draw_wrapped(const char *text, int total_chars,
 		  int screen_width, char *typed, int current_index)
 {
+    int i;
+    int row, col;
     /* In wrap mode, use fixed width wrapping */
-    for (int i = 0; i < total_chars; i++) {
-	int row = i / screen_width;
-	int col = i % screen_width;
+    for (i = 0; i < total_chars; i++) {
+	row = i / screen_width;
+	col = i % screen_width;
 	if (i < current_index) {
 	    if (typed[i] == text[i]) {
 		attron(COLOR_PAIR(1));
@@ -645,22 +652,31 @@ void draw_wrapped(const char *text, int total_chars,
 
 void run_typing_trainer(char *path, const char *text)
 {
-    size_t total_chars = strlen(text);
-    size_t current_index = 0;
+    size_t total_chars;
+    size_t current_index;
     int ch;
-    time_t start_time = 0, end_time = 0;
-    int started = 0;		/* 0 = not started, 1 = started */
+    time_t start_time, end_time;
+    int started;
     int screen_width;
-    size_t i = 0;
+    size_t i;
+    char* typed;
+    int total_keystrokes;
+    int error_count;
+    double elapsed;
+    double wpm, cpm, accuracy, consistency;
+    size_t correct_chars;
+    int acc_color_index;
+
     /* Allocate buffer for user's input */
-    char *typed = malloc(total_chars + 1);
+    total_chars = strlen(text);
+    typed = malloc(total_chars + 1);
     if (!typed)
 	return;
     memset(typed, 0, total_chars + 1);
 
     /* Counters for keystrokes and errors for consistency */
-    int total_keystrokes = 0;
-    int error_count = 0;
+    total_keystrokes = 0;
+    error_count = 0;
 
     /* Initialize ncurses */
     initscr();
@@ -680,6 +696,12 @@ void run_typing_trainer(char *path, const char *text)
 	/* Color pair 4: green on black for good accuracy */
 	init_pair(4, COLOR_GREEN, COLOR_BLACK);
     }
+
+    i = 0;
+    started = 0;
+    end_time = 0;
+    start_time = 0;
+    current_index = 0;
 
     /* Typing loop */
     while (current_index < total_chars) {
@@ -713,25 +735,24 @@ void run_typing_trainer(char *path, const char *text)
     }
     end_time = time(NULL);
 
-    double elapsed = difftime(end_time, start_time);
+    elapsed = difftime(end_time, start_time);
     if (elapsed <= 0)
 	elapsed = 1;		/* avoid division by zero */
-    double wpm, cpm;
     calc_speed(path, elapsed, &wpm, &cpm);
 
-    size_t correct_chars = 0;
+    correct_chars = 0;
     for (i = 0; i < total_chars; i++) {
 	if (typed[i] == text[i])
 	    correct_chars++;
     }
-    double accuracy = ((double) correct_chars * 100.0) / total_chars;
-    double consistency = total_keystrokes > 0 ?
+    accuracy = ((double) correct_chars * 100.0) / total_chars;
+    consistency = total_keystrokes > 0 ?
 	((double) (total_keystrokes - error_count) * 100.0 /
 	 total_keystrokes) : 100.0;
 
     clear();
     mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
-    int acc_color_index = 4;	/* green by default */
+    acc_color_index = 4;	/* green by default */
     if (accuracy < 90.0)
 	acc_color_index = 3;
     mvprintw(1, 0, "Accuracy: %.4f%%   Consistency: %.2f%%", accuracy,
