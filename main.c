@@ -263,51 +263,6 @@ int main(int argc, char **argv)
     return 0;
 }
 
-int mkpath(const char *dir, mode_t mode)
-{
-    char *tmp = strdup(dir);
-    if (tmp == NULL) {
-	perror("strdup");
-	return -1;
-    }
-
-    size_t len = strlen(tmp);
-    if (len == 0) {
-	free(tmp);
-	return 0;
-    }
-    // Remove trailing slash, if any.
-    if (tmp[len - 1] == '/') {
-	tmp[len - 1] = '\0';
-    }
-    // Create each directory component in the path.
-    for (char *p = tmp + 1; *p; p++) {
-	if (*p == '/') {
-	    *p = '\0';
-	    if (mkdir(tmp, mode) != 0) {
-		if (errno != EEXIST) {
-		    perror(tmp);
-		    free(tmp);
-		    return -1;
-		}
-	    }
-	    *p = '/';
-	}
-    }
-
-    // Create the final directory.
-    if (mkdir(tmp, mode) != 0) {
-	if (errno != EEXIST) {
-	    perror(tmp);
-	    free(tmp);
-	    return -1;
-	}
-    }
-
-    free(tmp);
-    return 0;
-}
-
 int __create_directories(const char *path)
 {
     char *tmp = strdup(path);
