@@ -16,9 +16,7 @@
 
 /* When in 'tty mode' (teletype mode) where text is scrolling, this is the
  * amount of characters that are shown from the position of the current cursor
- * to the position of the end of the screen. i.e. how many untyped characters
- * are shown in advance. This can be thought of as a 'word preview' or
- * 'character preview' as well.
+ * to the position of the end of the screen.
  */
 static int char_offset = 20;
 
@@ -31,13 +29,12 @@ static int char_offset = 20;
 /*
  * Easier visual on error
  *
- * Show character that needs to be typed instead of character thats typed.
- * This makes it easier to see the stuff that actually needs to be corrected.
- *
- * For instance "foo" (correct) typed as "fob" (incorrect) would still show "foo"
- * but the last letter would be red.
-*/
+ * Show character that needs to be typed instead of the character that was typed.
+ */
 #define HIDE_ERR       true
+
+/* Global flag to control text wrapping mode */
+static int wrap_mode = 0;
 
 /**
  * collect_dir_entries - Collect regular file entries from a directory.
@@ -52,8 +49,8 @@ static char **collect_dir_entries(const char *path, size_t *count);
 
 /**
  * calc_speed - Get WPM and CPM values from a file.
- * @filename: Path to the file to read. 
- * @elapsed: Total elapsed time. Assumed to be 0.0.
+ * @filename: Path to the file to read.
+ * @elapsed: Total elapsed time.
  * @wpm: Words typed per minute value.
  * @cpm: Characters typed per minute value.
  *
@@ -104,7 +101,7 @@ static void seed_rng(void);
  * @cpm: Characters per minute.
  * @accuracy: Accuracy in percentage.
  * @consistency: Consistency in percentage.
- * @path: Name of the file path
+ * @path: Name of the file path.
  *
  * Opens the scores file (creating it if necessary) and appends a new line containing
  * the WPM, CPM, accuracy, and consistency metrics, separated by commas.
@@ -114,26 +111,27 @@ static void save_score(double wpm, double cpm, double accuracy,
 
 /**
  * run_typing_trainer - Run an ncurses-based typing trainer.
- * @text: The text to be typed by the user.
  * @path: Path to the file containing the text.
+ * @text: The text to be typed by the user.
  *
  * Uses ncurses to display the text for typing.
+ * In normal mode, horizontal scrolling is implemented so that the current position remains visible.
+ * In wrap mode, the text is wrapped to the screen width.
  * The already typed text is displayed character-by-character:
  * - Correct characters are shown in white.
- * - Incorrect characters are shown in red.
+ * - Incorrect characters are shown in red (or shown as the expected character if HIDE_ERR is true).
  * The untyped text is rendered in a dim (grayish) style.
- * Horizontal scrolling is implemented so that the current position remains visible.
  * Backspace support allows corrections.
- * Upon completion, the function calculates and displays both the words-per-minute (WPM)
+ * Upon completion, the function calculates and displays the words-per-minute (WPM),
  * characters-per-minute (CPM), and the accuracy metric.
  */
 static void run_typing_trainer(char *path, const char *text);
 
 /**
- *usage - Print program usage.
- * @progname: The program name
- * 
- * Send the program usage details into stderr pipe.
+ * usage - Print program usage.
+ * @progname: The program name.
+ *
+ * Sends the program usage details to stderr.
  */
 static void usage(char *progname);
 
@@ -141,13 +139,23 @@ static void usage(char *progname);
  * main - Entry point for the typing trainer program.
  *
  * Reads a random text file from the ENTRIES_DIR directory and launches the typing trainer.
+ * A "--wrap" argument enables text wrapping mode.
  * Returns 0 on success, or a non-zero value on error.
  */
 int main(int argc, char **argv)
 {
-    if (argc != 1) {
+    /* Allow zero or one argument: optional "--wrap" */
+    if (argc > 2) {
 	usage(argv[0]);
 	return 1;
+    }
+    if (argc == 2) {
+	if (strcmp(argv[1], "--wrap") == 0) {
+	    wrap_mode = 1;
+	} else {
+	    usage(argv[0]);
+	    return 1;
+	}
     }
 
     char *rand_file = NULL;
@@ -207,7 +215,7 @@ static char *read_file(const char *path)
 
     length = ftell(f);
     if (length < 0) {
-	perror("Error geting file length");
+	perror("Error getting file length");
 	fclose(f);
 	return NULL;
     }
@@ -255,7 +263,7 @@ static void calc_speed(const char *filename, double elapsed, double *wpm,
     int total_chars = 0;
     int ch;
 
-    // Read the file character by character and count only non-space characters
+    /* Count only non-whitespace characters */
     while ((ch = fgetc(file)) != EOF) {
 	if (!isspace(ch)) {
 	    total_chars++;
@@ -263,9 +271,8 @@ static void calc_speed(const char *filename, double elapsed, double *wpm,
     }
     fclose(file);
 
-    // Calculate characters per minute and words per minute
     *cpm = ((double) total_chars / elapsed) * 60.0;
-    *wpm = *cpm / 5.0;		// Assuming average word length is 5 characters
+    *wpm = *cpm / 5.0;		/* Assuming average word length is 5 characters */
 }
 
 static char *random_file_from_dir(void)
@@ -370,10 +377,10 @@ static void run_typing_trainer(char *path, const char *text)
     size_t current_index = 0;
     int ch;
     time_t start_time = 0, end_time = 0;
-    int started = 0;		/* flag: 0 = not started, 1 = started */
-    int screen_width, offset;
+    int started = 0;		/* 0 = not started, 1 = started */
+    int screen_width;
     size_t i;
-    /* Allocate a buffer for the user's input */
+    /* Allocate buffer for user's input */
     char *typed = malloc(total_chars + 1);
     if (!typed)
 	return;
@@ -390,59 +397,75 @@ static void run_typing_trainer(char *path, const char *text)
     keypad(stdscr, TRUE);
     curs_set(0);		/* hide cursor */
 
-    /* Initialize colors if available */
     if (has_colors()) {
 	start_color();
 	/* Color pair 1: white on black for correct typed text */
 	init_pair(1, COLOR_WHITE, COLOR_BLACK);
 	/* Color pair 2: white on black for untyped text with dim attribute */
 	init_pair(2, COLOR_WHITE, COLOR_BLACK);
-	/* Color pair 3: red on black for incorrect typed text or bad accuracy */
+	/* Color pair 3: red on black for incorrect typed text */
 	init_pair(3, COLOR_RED, COLOR_BLACK);
-	/* Color pair 4: green on black for good accurarcy */
+	/* Color pair 4: green on black for good accuracy */
 	init_pair(4, COLOR_GREEN, COLOR_BLACK);
     }
 
-    /* Typing loop with horizontal scrolling and backspace support */
+    /* Typing loop */
     while (current_index < total_chars) {
 	clear();
 	screen_width = getmaxx(stdscr);
-	/* Ensure the current position is visible */
-	offset =
-	    (current_index + char_offset <
-	     (size_t) screen_width) ? 0 : current_index - screen_width +
-	    char_offset + 1;
 
-	/* Display the already typed text */
-	for (i = offset; i < current_index; i++) {
-	    if (i >= total_chars)
-		break;
-	    if (typed[i] == text[i]) {
-		attron(COLOR_PAIR(1));
-		mvaddch(0, i - offset, typed[i]);
-		attroff(COLOR_PAIR(1));
-	    } else {
-		attron(COLOR_PAIR(3));
-		if (HIDE_ERR) {
-		    mvaddch(0, i - offset, text[i]);
+	if (wrap_mode) {
+	    /* In wrap mode, use fixed width wrapping */
+	    for (i = 0; i < total_chars; i++) {
+		int row = i / screen_width;
+		int col = i % screen_width;
+		if (i < current_index) {
+		    if (typed[i] == text[i]) {
+			attron(COLOR_PAIR(1));
+			mvaddch(row, col, typed[i]);
+			attroff(COLOR_PAIR(1));
+		    } else {
+			attron(COLOR_PAIR(3));
+			/* If HIDE_ERR is true, show expected char */
+			mvaddch(row, col, HIDE_ERR ? text[i] : typed[i]);
+			attroff(COLOR_PAIR(3));
+		    }
 		} else {
-		    mvaddch(0, i - offset, typed[i]);
+		    attron(COLOR_PAIR(2));
+		    attron(A_DIM);
+		    mvaddch(row, col, text[i]);
+		    attroff(A_DIM);
+		    attroff(COLOR_PAIR(2));
 		}
-		attroff(COLOR_PAIR(3));
 	    }
+	} else {
+	    /* Original horizontal scrolling mode */
+	    int offset = (current_index + char_offset < screen_width)
+		? 0 : current_index - screen_width + char_offset + 1;
+
+	    for (i = offset; i < current_index; i++) {
+		if (i >= total_chars)
+		    break;
+		if (typed[i] == text[i]) {
+		    attron(COLOR_PAIR(1));
+		    mvaddch(0, i - offset, typed[i]);
+		    attroff(COLOR_PAIR(1));
+		} else {
+		    attron(COLOR_PAIR(3));
+		    mvaddch(0, i - offset, HIDE_ERR ? text[i] : typed[i]);
+		    attroff(COLOR_PAIR(3));
+		}
+	    }
+	    attron(COLOR_PAIR(2));
+	    attron(A_DIM);
+	    mvprintw(0, current_index - offset, "%.*s",
+		     screen_width - (current_index - offset),
+		     text + current_index);
+	    attroff(A_DIM);
+	    attroff(COLOR_PAIR(2));
 	}
 
-	/* Display the remaining untyped text in dim white */
-	(void) attron(COLOR_PAIR(2));
-	(void) attron(A_DIM);
-	mvprintw(0, current_index - offset, "%.*s",
-		 screen_width - (current_index - offset),
-		 text + current_index);
-	(void) attroff(A_DIM);
-	(void) attroff(COLOR_PAIR(2));
-
-	(void) refresh();
-
+	refresh();
 	ch = getch();
 	if (!started) {
 	    start_time = time(NULL);
@@ -461,51 +484,43 @@ static void run_typing_trainer(char *path, const char *text)
     }
     end_time = time(NULL);
 
-    /* Calculate elapsed time (in seconds), WPM, CPM, and accuracy */
     double elapsed = difftime(end_time, start_time);
     if (elapsed <= 0)
 	elapsed = 1;		/* avoid division by zero */
     double wpm, cpm;
     calc_speed(path, elapsed, &wpm, &cpm);
 
-    /* Accuracy based on final text */
     size_t correct_chars = 0;
     for (i = 0; i < total_chars; i++) {
 	if (typed[i] == text[i])
 	    correct_chars++;
     }
     double accuracy = ((double) correct_chars * 100.0) / total_chars;
-    /* Consistency: penalize mistakes even if corrected */
     double consistency = total_keystrokes > 0 ?
 	((double) (total_keystrokes - error_count) * 100.0 /
 	 total_keystrokes) : 100.0;
 
     clear();
-
     mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
-
-    int acc_color_index = 4;	/* green en default */
-    if (accuracy < (double) 90.0) {
+    int acc_color_index = 4;	/* green by default */
+    if (accuracy < 90.0)
 	acc_color_index = 3;
-    }
     mvprintw(1, 0, "Accuracy: %.4f%%   Consistency: %.2f%%", accuracy,
 	     consistency);
-    (void) attroff(COLOR_PAIR(acc_color_index));
+    attroff(COLOR_PAIR(acc_color_index));
     mvprintw(4, 5, "[[ Press any key ]]");
     refresh();
     getch();
     endwin();
 
-    /* Save the score to file */
     save_score(wpm, cpm, accuracy, consistency, path);
-
     free(typed);
 }
 
-void usage(char *progname)
+static void usage(char *progname)
 {
     if (progname != NULL) {
-	fprintf(stderr, "Usage: %s [args]\n", progname);
+	fprintf(stderr, "Usage: %s [--wrap]\n", progname);
 	free(progname);
     }
     exit(EXIT_FAILURE);
