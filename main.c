@@ -240,7 +240,7 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++) {
 	if (strcmp(argv[i], "--wrap") == 0) {
 	    wrap_mode = 1;
-	} else if (strcmp(argv[1], "--debug") == 0) {
+	} else if (strcmp(argv[i], "--debug") == 0) {
 	    debug = 1;
 	} else {
 	    usage(argv[0]);
