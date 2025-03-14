@@ -173,7 +173,9 @@ int main(int argc, char **argv)
     full_path = malloc(MAX_PATH_SIZE);
     if (!full_path) {
 	perror("malloc");
-	free(rand_file);
+	if (rand_file != NULL) {
+	    free(rand_file);
+	}
 	return 1;
     }
     snprintf(full_path, MAX_PATH_SIZE, "%s/%s", ENTRIES_DIR, rand_file);
@@ -182,8 +184,12 @@ int main(int argc, char **argv)
     file_contents = read_file(full_path);
     if (!file_contents) {
 	perror("read_file");
-	free(full_path);
-	free(rand_file);
+	if (full_path != NULL) {
+	    free(full_path);
+	}
+	if (rand_file != NULL) {
+	    free(rand_file);
+	}
 	return 1;
     }
 
@@ -514,7 +520,9 @@ static void run_typing_trainer(char *path, const char *text)
     endwin();
 
     save_score(wpm, cpm, accuracy, consistency, path);
-    free(typed);
+    if (free != NULL) {
+	free(typed);
+    }
 }
 
 static void usage(char *progname)
