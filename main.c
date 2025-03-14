@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <ncurses.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -48,7 +47,7 @@
  *
  * Show character that needs to be typed instead of the character that was typed.
  */
-#define HIDE_ERR       true
+#define HIDE_ERR       1
 
 /**
  * Draw wrapped text. I.e. show all the text that can be possibly shown within
@@ -173,7 +172,7 @@ static double average_word_length(const char *s);
  * In wrap mode, the text is wrapped to the screen width.
  * The already typed text is displayed character-by-character:
  * - Correct characters are shown in white.
- * - Incorrect characters are shown in red (or shown as the expected character if HIDE_ERR is true).
+ * - Incorrect characters are shown in red (or shown as the expected character if HIDE_ERR is 1).
  * The untyped text is rendered in a dim (grayish) style.
  * Backspace support allows corrections.
  * Upon completion, the function calculates and displays the words-per-minute (WPM),
@@ -636,7 +635,7 @@ void draw_wrapped(const char *text, int total_chars,
 		attroff(COLOR_PAIR(1));
 	    } else {
 		attron(COLOR_PAIR(3));
-		/* If HIDE_ERR is true, show expected char */
+		/* If HIDE_ERR is 1, show expected char */
 		mvaddch(row, col, HIDE_ERR ? text[i] : typed[i]);
 		attroff(COLOR_PAIR(3));
 	    }
