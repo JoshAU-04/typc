@@ -1,0 +1,1 @@
+There are many other ways of programming the switching sequence, which will not be discussed here. In many cases the switching sequence is under computer control. In the simple method used above, the intention is to show the fundamental principle upon which pulse width modulation is used.

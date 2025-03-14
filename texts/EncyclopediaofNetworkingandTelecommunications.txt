@@ -1,0 +1,1 @@
+Directories contain elements that describe objects in the world, such as computers, folders, objects, managed resources, and even people. These elements have names and, like the fields in a database, changing values.

@@ -1,0 +1,1 @@
+Add a number to itself and it changes. One and one is not one - it's two. Two and two is four. But zero and zero is zero. This violates the basic principle of numbers called the axiom of Archimedes, which says that if you add something to itself enough times, it will exceed any other number in magnitude.

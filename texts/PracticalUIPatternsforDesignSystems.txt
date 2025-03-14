@@ -1,0 +1,1 @@
+Our customers are nervous about financial decisions because money is a massive stressor, so let's use reassuring words in our inline help hints, as well as live previews and confirmation patterns to improve their confidence.

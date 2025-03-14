@@ -1,0 +1,1 @@
+A nice place to start learning Plover is with its most obvious feature - the keyboard. What is this thing? Some letters seem to be missing, others seem to be duplicated. It looks weird.

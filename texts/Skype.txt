@@ -1,0 +1,1 @@
+Hello, welcome to Skype call testing service. After the beep, please record a message. Afterwards, your message will be played back to you.
