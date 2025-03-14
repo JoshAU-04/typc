@@ -28,3 +28,8 @@ important because the program relies on relative I/O paths. For example, the
 `texts` directory must be located in the same directory where the executable is
 run. Running Typc from a directory without the required structure (e.g.,
 `~/Downloads/typc` without a `texts` folder) will result in errors.
+
+
+## License
+
+This project is licensed under GPLv3. See [LICENSE](https://github.com/JoshAU-04/typc/blob/main/LICENSE) for the full license text.

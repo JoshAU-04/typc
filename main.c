@@ -1,4 +1,21 @@
-/* Copyright 2025 Joshua Rose <joshuarose@gmx.com> */
+/*
+ * Typc - A console-based typing trainer
+ * Copyright (C) 2025 Joshua Rose <joshuarose@gmx.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -53,7 +70,7 @@ static int wrap_mode = 0;
  * the --wrap option. By default the --wrap option if not toggled on.
  */
 static void draw_wrapped(const char *text, int total_chars,
-		  int screen_width, char *typed, int current_index);
+			 int screen_width, char *typed, int current_index);
 
 /**
  * @draw_scrolled - Draw scrolled text.
