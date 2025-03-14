@@ -1,38 +1,34 @@
 # Typc
 
-This is a program called Typc.
+Typc is a lightweight, console-based typing trainer written in C.
 
-## About the program.
+## About
 
-This program is a console-based typing trainer. It's fairly minimal (at least
-at the time of this being written) so it doesn't have any fancy command line
-parsing features or anything like that. However it does have a few features.
+Typc is a minimalistic, console-based typing trainer. It focuses on core
+functionality without relying on complex command line parsing libraries.
+Despite its simplicity, Typc offers several useful features to help improve
+your typing speed and accuracy.
 
-## The features of the program.
+## Features
 
-The first feature is the ability to calculate the statistics of the text you've
-typed. So the program selects a text at random from the texts/ directory. You
-go ahead and type the text, and once you've finished, it shows you a few
-details about how well you performed in the test. I'll just be calling this the
-'results' page.
+Typc provides a detailed analysis of your typing performance by comparing your
+input to a randomly selected text. After completing a test, you will see your
+performance statistics on the **Results Page**.
 
 ### Results Page
 
 #### Words per minute
 
-The words per minute is simply the amount of words that you would have typed
-per every 60 seconds (1 minute).
+This metric calculates the number of words you would have typed in 1 minute.
 
 #### Characters per minute
 
-Similar to your words per minute, except it is the amount of characters that
-you would have typed per minute. Very self-explanatory.
+This shows the number of characters you would have typed per minute.
 
 #### Accuracy
 
-Your accuracy is calculated as the amount of characters you have typed
-correctly multiplied by 100. This is then divided by the total amount of
-characters in the text.
+Accuracy is determined by the number of correctly typed characters relative to
+the total characters in the text:
 
 $$
 accuracy = \frac{correct\text{ }characters \cdot 100}{total\text{ }characters}
@@ -40,57 +36,45 @@ $$
 
 #### Consistency
 
-The consistency is the amount of mistakes that you've made, even the ones that
-you've corrected, proportional to the total amount of keystrokes.
+Consistency measures the proportion of keystrokes made without errors, even if
+the mistakes were later corrected:
 
 $$
 consistency = \frac{(keystrokes - errors) \cdot 100}{keystrokes}
 $$
 
-## Why this program was made.
+## Purpose
 
-This program was made because there was a significant lack of command-line
-typing trainers that were/are open source. There is a program that is build
-with Rust called typrr (or something similar) which I found to be a decent
-command line typing trainer, but it required Rust to be installed. The reason
-why this is a problem for me is a bit complex, but it boils down to the idea
-that unless there is a very good reason for not doing so, programs should be
-built in C. Programs that are built in C can be cross-compiled (with
-some exceptions) and are generally very fast as well. For these reasons, Typc
-is build in C.
+Typc was created to address the lack of open-source, command-line-based typing
+trainers. While there are alternatives built with languages like Rust (e.g.,
+Typerr), they often require additional dependencies. By building Typc in C, it
+can be easily cross-compiled and offers high performance without extra
+installation overhead.
 
-## The name of the program.
+## Naming
 
-The program's name was derived from the name of an existing Rust program for
-typing called Typerr and I took the name, changed it a bit, wacked a C on the
-end, and here we are.
+The name "Typc" is inspired by an existing Rust typing trainer named Typerr.
+The name was adapted by modifying it slightly and appending a "C" to signify
+that this program is written in C.
 
-## Using the program.
+## Usage
 
-Using the program is very simple. You simply just run the executable (within
-the source directory). It's important that the progrma is run within the source
-directory because the program uses something called relative IO pathing. This
-basically means that various specific directories and files must be present in the
-same directory where the program is run. For instance, the 'texts' directory
-must be visible, as that is where all of the texts are stored. Running the
-program in a ~/Downloads/typc folder where ~/Downloads/typc/texts doesn't exist
-would be problematic for this exact reason.
+To use Typc, simply run the executable from the source directory. This is
+important because the program relies on relative I/O paths. For example, the
+`texts` directory must be located in the same directory where the executable is
+run. Running Typc from a directory without the required structure (e.g.,
+`~/Downloads/typc` without a `texts` folder) will result in errors.
 
-## How the program chooses a text to show to you for you to type.
+## Text Selection
 
-The program gets all the files in the 'texts' directory, and selects one at
-random. The RNG is seeded from the current time so that texts are selected in a
-different random sequence every time the program is run. If you run the
-program, type a few randomly selected texts and then exit, the next time you
-run the program, the sequence in which the texts are selected is in a
-completely different random order.
+The program scans all files within the `texts` directory and selects one at
+random. The random number generator is seeded with the current time, ensuring a
+different order of text selection each time you run the program.
 
-## Adding new texts.
+## Adding New Texts
 
-You can add new texts very easily. You can create a new file in 'texts'. You
-can also call it whatever you'd like, but typically you should name it
-something that allows you to easily know what the text is about. If the text
-was a quote from the Bible you might name it something like
-"bible_verse_corinthians_12" or something like that. Of course, that's not
-required, and you can really name it whatever you want, but the texts that are
-provided by default have file names that somewhat match the topic.
+Adding new texts is straightforward. Create a new file in the `texts` directory.
+While you can name the file anything, it's best to use descriptive names. For
+example, if the text is a Bible verse, you might name it
+`bible_verse_corinthians_12.txt`. The default texts are similarly named to
+reflect their content.
