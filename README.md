@@ -2,7 +2,7 @@
 
 Typc is a lightweight, console-based typing trainer written in C.
 
-![preview](./.github/assets/preview.gif)
+![preview](https://github.com/JoshAU-04/typc/blob/main/.github/assets/preview.gif?raw=true)
 
 
 ## About
