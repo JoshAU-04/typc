@@ -44,7 +44,7 @@ The consistency is the amount of mistakes that you've made, even the ones that
 you've corrected, proportional to the total amount of keystrokes.
 
 $$
-consistency = \frac{(keystrokes - errors) * 100}{keystrokes}
+consistency = \frac{(keystrokes - errors) \cdot 100}{keystrokes}
 $$
 
 ## Why this program was made.
