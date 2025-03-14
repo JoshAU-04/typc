@@ -14,9 +14,9 @@ your typing speed and accuracy. For more information, see the [wiki](https://git
 ## Features
 
 Typc provides a detailed analysis of your typing performance by comparing your
-input to a [randomly selected text](https://github.com/JoshAU-04/typc/wiki/Randomization).
-After completing a test, you will see your performance statistics on the [Results Page](https://github.com/JoshAU-04/typc/wiki/Results-Page).
-If you'd like, you can also easily [add your own texts](https://github.com/JoshAU-04/typc/wiki/Adding-Texts#adding-new-texts).
+input to a [randomly selected text](https://github.com/JoshAU-04/typc/wiki#randomization).
+After completing a test, you will see your performance statistics on the [results page](https://github.com/JoshAU-04/typc/wiki#results-page).
+If you'd like, you can also easily [add your own texts](https://github.com/JoshAU-04/typc/wiki#adding-texts).
 Typc also has a few arguments that you can give it to customize how the program
 behaves which are all detailed on the [wiki](https://github.com/JoshAU-04/typc/wiki).
 
