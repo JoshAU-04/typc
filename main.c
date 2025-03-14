@@ -16,19 +16,22 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
 #include <ncurses.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
 
+#define DT_REG 8
 #define REGULAR_FILE   DT_REG
 #define MAX_PATH_SIZE  (PATH_MAX)
 #define ENTRIES_DIR    "/usr/local/lib/typc/texts"
@@ -114,12 +117,6 @@ static char **collect_dir_entries(const char *path, size_t *count);
  */
 static void calc_speed(const char *filename, double elapsed, double *wpm,
 		       double *cpm);
-/*
- * create_or_append() extracts the directory part of 'filepath',
- * creates it (and any missing parent directories), and then opens
- * the file in append mode to write 'info' into it.
- */
-static int create_or_append(const char *filepath, const char *info);
 
 /**
  * Creates the file $HOME/.local/state/typc/data.csv, including all parent directories.
@@ -211,6 +208,17 @@ static void run_typing_trainer(char *path, const char *text);
  * Sends the program usage details to stderr.
  */
 static void usage(char *progname);
+
+
+/**
+ * Construct directory from path.
+ *
+ * This takes all directory components including parent dirs and constructs one
+ * from a given path argument.
+ *
+ * @path - The path to construct the directory from.
+ */
+static int __create_directories(const char *path);
 
 /**
  * main - Entry point for the typing trainer program.
@@ -327,9 +335,8 @@ int create_data_csv(void)
     }
 
     /* Construct the full path to the data.csv file. */
-    char path[PATH_MAX];
+    static char path[PATH_MAX];
     snprintf(path, sizeof(path), "%s/%s", home_dir, scores_file);
-
     scores_file = path;
 
     /* Extract the directory path by removing the file name. */
@@ -565,9 +572,6 @@ void save_score(double wpm, double cpm, double accuracy,
 	if (path != NULL) {
 	    free(path);
 	}
-	if (home_dir != NULL) {
-	    free(home_dir);
-	}
 	exit(EXIT_FAILURE);
     }
 
@@ -739,9 +743,7 @@ void run_typing_trainer(char *path, const char *text)
     endwin();
 
     save_score(wpm, cpm, accuracy, consistency, path);
-    if (free != NULL) {
-	free(typed);
-    }
+    free(typed);
 }
 
 void usage(char *progname)
