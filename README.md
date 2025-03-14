@@ -29,6 +29,10 @@ important because the program relies on relative I/O paths. For example, the
 run. Running Typc from a directory without the required structure (e.g.,
 `~/Downloads/typc` without a `texts` folder) will result in errors.
 
+> [!NOTE]
+> This only applies when running from source. If you've run `sudo make install`
+> or simply run `sudo ./INSTALL` then this doesn't really apply at all.
+
 
 ## License
 
