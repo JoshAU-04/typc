@@ -167,6 +167,14 @@ static void seed_rng(void);
 static void save_score(double wpm, double cpm, double accuracy,
 		       double consistency, char *path);
 
+
+/**
+ * init_ncurses - Initialize ncurses
+ *
+ * Initialize screen, keypad, etc.
+ */
+static void __init_ncurses(void);
+
 /**
  * average_word_length - Calculate average word length from string.
  *
@@ -220,6 +228,18 @@ static void usage(char *progname);
  * err.
  */
 static int __create_directories(const char *path);
+
+
+/**
+ * draw_results - Draw results screen.
+ *
+ * @wpm: Words per minute.
+ * @cpm: Characters per minute.
+ * @accuracy: Accuracy in percentage.
+ * @consistency: Consistency in percentage.
+ */
+static void draw_results(double wpm, double cpm, double accuracy,
+			 double consistency);
 
 /* scores file (prefixed by $HOME) */
 static char *scores_file = ".local/state/typc/data.csv";
@@ -672,7 +692,6 @@ void run_typing_trainer(char *path, const char *text)
     double elapsed;
     double wpm, cpm, accuracy, consistency;
     size_t correct_chars;
-    int acc_color_index;
 
     /* Allocate buffer for user's input */
     total_chars = strlen(text);
@@ -685,24 +704,7 @@ void run_typing_trainer(char *path, const char *text)
     total_keystrokes = 0;
     error_count = 0;
 
-    /* Initialize ncurses */
-    initscr();
-    cbreak();
-    noecho();
-    keypad(stdscr, TRUE);
-    curs_set(0);		/* hide cursor */
-
-    if (has_colors()) {
-	start_color();
-	/* Color pair 1: white on black for correct typed text */
-	init_pair(1, COLOR_WHITE, COLOR_BLACK);
-	/* Color pair 2: white on black for untyped text with dim attribute */
-	init_pair(2, COLOR_WHITE, COLOR_BLACK);
-	/* Color pair 3: red on black for incorrect typed text */
-	init_pair(3, COLOR_RED, COLOR_BLACK);
-	/* Color pair 4: green on black for good accuracy */
-	init_pair(4, COLOR_GREEN, COLOR_BLACK);
-    }
+    __init_ncurses();
 
     i = 0;
     started = 0;
@@ -757,19 +759,7 @@ void run_typing_trainer(char *path, const char *text)
 	((double) (total_keystrokes - error_count) * 100.0 /
 	 total_keystrokes) : 100.0;
 
-    clear();
-    mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
-    acc_color_index = 4;	/* green by default */
-    if (accuracy < 90.0)
-	acc_color_index = 3;
-    attron(COLOR_PAIR(acc_color_index));
-    mvprintw(1, 0, "Accuracy: %.4f%%   Consistency: %.2f%%", accuracy,
-	     consistency);
-    attroff(COLOR_PAIR(acc_color_index));
-    mvprintw(4, 5, "[[ Press any key ]]");
-    refresh();
-    getch();
-    endwin();
+    draw_results(wpm, cpm, accuracy, consistency);
 
     save_score(wpm, cpm, accuracy, consistency, path);
     free(typed);
@@ -802,4 +792,45 @@ void parse_args(int argc, char **argv)
 	}
     }
 
+}
+
+void draw_results(double wpm, double cpm, double accuracy,
+		  double consistency)
+{
+    int acc_color_index;
+
+    clear();
+    mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
+    acc_color_index = 4;	/* green by default */
+    if (accuracy < 90.0)
+	acc_color_index = 3;
+    attron(COLOR_PAIR(acc_color_index));
+    mvprintw(1, 0, "Accuracy: %.4f%%   Consistency: %.2f%%", accuracy,
+	     consistency);
+    attroff(COLOR_PAIR(acc_color_index));
+    mvprintw(4, 5, "[[ Press any key ]]");
+    refresh();
+    getch();
+    endwin();
+}
+
+void __init_ncurses(void) {
+    /* Initialize ncurses */
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    curs_set(0);		/* hide cursor */
+
+    if (has_colors()) {
+	start_color();
+	/* Color pair 1: white on black for correct typed text */
+	init_pair(1, COLOR_WHITE, COLOR_BLACK);
+	/* Color pair 2: white on black for untyped text with dim attribute */
+	init_pair(2, COLOR_WHITE, COLOR_BLACK);
+	/* Color pair 3: red on black for incorrect typed text */
+	init_pair(3, COLOR_RED, COLOR_BLACK);
+	/* Color pair 4: green on black for good accuracy */
+	init_pair(4, COLOR_GREEN, COLOR_BLACK);
+    }
 }
