@@ -50,6 +50,13 @@
 #define HIDE_ERR       1
 
 /**
+ * @text - The text to draw
+ * @total_chars - The total number of chars to draw.
+ * @screen_width - The number of columns that can be used.
+ * @typed - The characters that have already been typed.
+ * @current_index - The current position of the cursor respective to
+ * `total_chars`.
+ *
  * Draw wrapped text. I.e. show all the text that can be possibly shown within
  * the contraints of the width and height of the terminal display. This is with
  * the --wrap option. By default the --wrap option if not toggled on.
@@ -157,8 +164,9 @@ static void save_score(double wpm, double cpm, double accuracy,
  * Used in calculating text metrics.
  *
  * @s: String taken from file contents.
- *
  * @see read_file
+ *
+ * Returns the average word length as a double.
  */
 static double average_word_length(const char *s);
 
@@ -168,11 +176,14 @@ static double average_word_length(const char *s);
  * @text: The text to be typed by the user.
  *
  * Uses ncurses to display the text for typing.
+ *
  * In normal mode, horizontal scrolling is implemented so that the current position remains visible.
  * In wrap mode, the text is wrapped to the screen width.
+ *
  * The already typed text is displayed character-by-character:
  * - Correct characters are shown in white.
  * - Incorrect characters are shown in red (or shown as the expected character if HIDE_ERR is 1).
+ *
  * The untyped text is rendered in a dim (grayish) style.
  * Backspace support allows corrections.
  * Upon completion, the function calculates and displays the words-per-minute (WPM),
@@ -195,6 +206,9 @@ static void usage(char *progname);
  * from a given path argument.
  *
  * @path - The path to construct the directory from.
+ *
+ * Returns the status code of the create directories operation where != 0 is
+ * err.
  */
 static int __create_directories(const char *path);
 
