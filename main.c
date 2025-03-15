@@ -768,6 +768,7 @@ void run_typing_trainer(char *path, const char *text)
     acc_color_index = 4;	/* green by default */
     if (accuracy < 90.0)
 	acc_color_index = 3;
+    attron(COLOR_PAIR(acc_color_index));
     mvprintw(1, 0, "Accuracy: %.4f%%   Consistency: %.2f%%", accuracy,
 	     consistency);
     attroff(COLOR_PAIR(acc_color_index));
