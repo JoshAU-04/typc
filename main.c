@@ -34,7 +34,6 @@
 #define DT_REG 8
 #define ENTRIES_DIR "/usr/local/lib/typc/texts"
 #define MAX_PATH_SIZE (PATH_MAX)
-#define REGULAR_FILE DT_REG
 
 /* minimal printable char */
 #define PRINT_CHAR_MIN 32
@@ -191,6 +190,13 @@ static void run_typing_trainer(char *path, const char *text);
  * Sends the program usage details to stderr.
  */
 static void usage(char *progname);
+
+/**
+ * get_num_files - Get number of files in a directory.
+ * @dir: Directory.
+ * Prints to STDERR and exits on failure.
+ */
+static size_t get_num_files(DIR * dir);
 
 /**
  * Construct directory from path.
@@ -520,8 +526,25 @@ char **collect_dir_entries(const char *path, size_t *count)
     DIR *dir;
     char **file_array = NULL;
     size_t file_count = 0;
-    char **temp = NULL;
+    size_t curr_file = 0;
 
+    // Allocate pathname array.
+    dir = opendir(path);
+    if (!dir) {
+        perror("opendir");
+        return NULL;
+    }
+
+    file_count = get_num_files(dir);
+    file_array = malloc(sizeof(char *) * file_count);
+
+    if (!file_array) {
+        perror("malloc");
+        return NULL;
+    }
+    closedir(dir);
+
+    // Populate pathname array.
     dir = opendir(path);
     if (!dir) {
         perror("opendir");
@@ -529,31 +552,13 @@ char **collect_dir_entries(const char *path, size_t *count)
     }
 
     while ((dent = readdir(dir)) != NULL) {
-        /* Only consider regular files */
-        if ((unsigned char)dent->d_type != (unsigned char)REGULAR_FILE)
-            continue;
+        if (dent->d_type != DT_REG) continue;
 
-        temp = realloc(file_array, sizeof(char *) * (file_count + 1));
-        if (!temp) {
-            perror("realloc");
-            for (size_t i = 0; i < file_count; i++)
-                free(file_array[i]);
-            free(file_array);
-            closedir(dir);
-            return NULL;
-        }
-        file_array = temp;
-
-        file_array[file_count] = strdup(dent->d_name);
-        if (!file_array[file_count]) {
+        file_array[curr_file] = strdup(dent->d_name);
+        if (!file_array[curr_file]) {
             perror("strdup");
-            for (size_t i = 0; i < file_count; i++)
-                free(file_array[i]);
-            free(file_array);
-            closedir(dir);
             return NULL;
         }
-        file_count++;
     }
 
     closedir(dir);
@@ -768,4 +773,13 @@ void usage(char *progname)
 {
     fprintf(stderr, "Usage: %s [--wrap] [--debug]\n", progname);
     exit(EXIT_FAILURE);
+}
+
+static size_t get_num_files(DIR * dir) {
+    size_t file_count = 0;
+    struct dirent *dent;
+    while ((dent = readdir(dir)) != NULL) {
+        if (dent->d_type == DT_REG) file_count++;
+    }
+    return file_count;
 }
