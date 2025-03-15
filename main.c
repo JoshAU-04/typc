@@ -814,7 +814,8 @@ void draw_results(double wpm, double cpm, double accuracy,
     endwin();
 }
 
-void __init_ncurses(void) {
+void __init_ncurses(void)
+{
     /* Initialize ncurses */
     initscr();
     cbreak();
