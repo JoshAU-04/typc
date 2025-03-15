@@ -50,6 +50,15 @@
 #define HIDE_ERR       1
 
 /**
+ * parse_args - A function to parse arguments from argv.
+ *
+ * @argv - The arguments themselves
+ * @argc - Number of arguments
+ *
+ */
+static void parse_args(int argc, char **argv);
+
+/**
  * @text - The text to draw
  * @total_chars - The total number of chars to draw.
  * @screen_width - The number of columns that can be used.
@@ -244,22 +253,7 @@ int main(int argc, char **argv)
     char *file_contents = NULL;
     char *full_path = NULL;
 
-    /* Allow zero or one argument: optional "--wrap" */
-    if (argc > 3) {
-	usage(argv[0]);
-	return 1;
-    }
-
-    for (int i = 1; i < argc; i++) {
-	if (strcmp(argv[i], "--wrap") == 0) {
-	    wrap_mode = 1;
-	} else if (strcmp(argv[i], "--debug") == 0) {
-	    debug = 1;
-	} else {
-	    usage(argv[0]);
-	    return 1;
-	}
-    }
+    parse_args(argc, argv);
 
     seed_rng();
 
@@ -787,4 +781,25 @@ void usage(char *progname)
 	fprintf(stderr, "Usage: %s [--wrap] [--debug]\n", progname);
     }
     exit(EXIT_FAILURE);
+}
+
+void parse_args(int argc, char **argv)
+{
+    /* Allow zero or one argument: optional "--wrap" */
+    if (argc > 3) {
+	usage(argv[0]);
+	exit(EXIT_FAILURE);
+    }
+
+    for (int i = 1; i < argc; i++) {
+	if (strcmp(argv[i], "--wrap") == 0) {
+	    wrap_mode = 1;
+	} else if (strcmp(argv[i], "--debug") == 0) {
+	    debug = 1;
+	} else {
+	    usage(argv[0]);
+	    exit(EXIT_FAILURE);
+	}
+    }
+
 }
