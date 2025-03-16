@@ -49,6 +49,13 @@
  */
 #define HIDE_ERR       1
 
+/* select_random_file - Select a random file from a given directory.
+ *
+ * @returns the selected file
+ *
+ */
+static char* select_random_file(void);
+
 /**
  * parse_args - A function to parse arguments from argv.
  *
@@ -89,17 +96,6 @@ static void draw_scrolled(const char *text, int total_chars, size_t i,
 			  int current_index);
 
 /**
- * collect_dir_entries - Collect regular file entries from a directory.
- * @path: Path to the directory.
- * @count: Pointer to a variable to store the number of collected entries.
- *
- * Reads the specified directory, collecting names of regular files.
- * Returns an array of dynamically allocated strings containing file names, or NULL on error.
- * The caller is responsible for freeing the array and each string.
- */
-static char **collect_dir_entries(const char *path, size_t *count);
-
-/**
  * calc_speed - Get WPM and CPM values from a file.
  * @filename: Path to the file to read.
  * @elapsed: Total elapsed time.
@@ -121,14 +117,6 @@ static void calc_speed(const char *filename, double elapsed, double *wpm,
 static int create_data_csv(void);
 
 /**
- * random_file_from_dir - Select a random file from the directory.
- *
- * Collects directory entries from the ENTRIES_DIR directory and picks one file randomly.
- * Returns a dynamically allocated string containing the file name, or NULL on error.
- */
-static char *random_file_from_dir(void);
-
-/**
  * read_file - Read an entire file into a buffer.
  * @path: Path to the file to read.
  *
@@ -136,15 +124,6 @@ static char *random_file_from_dir(void);
  * and null-terminates the string. Returns the buffer on success, or NULL on error.
  */
 static char *read_file(const char *path);
-
-/**
- * get_random_entry - Select a random entry from a list.
- * @files: Array of file name strings.
- * @count: Number of files in the array.
- *
- * Returns a randomly selected entry from the files array.
- */
-static char *get_random_entry(char **files, size_t count);
 
 /**
  * seed_rng - Seed the random number generator.
@@ -275,22 +254,22 @@ int main(int argc, char **argv)
 
     seed_rng();
 
-    rand_file = random_file_from_dir();
-    if (!rand_file) {
-	perror("random_file_from_dir");
-	return 1;
-    }
-
     full_path = malloc(MAX_PATH_SIZE);
     if (!full_path) {
 	perror("malloc");
 	return 1;
     }
+
+    rand_file = select_random_file();
+    if (!rand_file) {
+	perror("random_file_from_dir");
+	return 1;
+    }
+
     snprintf(full_path, MAX_PATH_SIZE, "%s/%s", ENTRIES_DIR, rand_file);
     if (debug == 1) {
 	fprintf(stdout, "[debug] reading %s\n", full_path);
     }
-
     file_contents = read_file(full_path);
     if (!file_contents) {
 	perror("read_file");
@@ -407,6 +386,9 @@ char *read_file(const char *path)
     FILE *f = fopen(path, "rb");
 
     if (!f) {
+	if (debug) {
+	    fprintf(stderr, "Error reading %s\n", path);
+	}
 	perror("fopen");
 	return NULL;
     }
@@ -511,82 +493,36 @@ void calc_speed(const char *filename, double elapsed, double *wpm,
     *wpm = *cpm / average_word_length(read_file(filename));
 }
 
-char *random_file_from_dir(void)
-{
-    size_t file_count = 0;
-    char **entries = collect_dir_entries(ENTRIES_DIR, &file_count);
-    char *selected = NULL;
-    char *entry = NULL;
-
-    if (!entries || file_count == 0)
-	return NULL;
-
-    /* Get a random entry from the list */
-    entry = get_random_entry(entries, file_count);
-    selected = strdup(entry);
-    if (!selected)
-	perror("strdup");
-
-    /* Free all entries */
-    for (size_t i = 0; i < file_count; i++)
-	free(entries[i]);
-    free(entries);
-
-    return selected;
-}
-
-char *get_random_entry(char **files, size_t count)
-{
-    size_t random_index = (size_t) (rand() % count);
-    return files[random_index];
-}
-
-char **collect_dir_entries(const char *path, size_t *count)
-{
+char* select_random_file(void) {
     struct dirent *dent;
     DIR *dir;
-    char **file_array = NULL;
-    size_t file_count = 0;
-    char **temp = NULL;
+    char *selected_file = NULL;
+    int count = 0;
 
-    dir = opendir(path);
-    if (!dir) {
-	perror("opendir");
-	return NULL;
+    if ((dir = opendir(ENTRIES_DIR)) == NULL) {
+        perror("opendir");
+        return NULL;
     }
 
     while ((dent = readdir(dir)) != NULL) {
-	/* Only consider regular files */
-	if ((unsigned char) dent->d_type != (unsigned char) REGULAR_FILE)
-	    continue;
+        if ((unsigned char)dent->d_type != (unsigned char)REGULAR_FILE)
+            continue;
 
-	temp = realloc(file_array, sizeof(char *) * (file_count + 1));
-	if (!temp) {
-	    perror("realloc");
-	    for (size_t i = 0; i < file_count; i++)
-		free(file_array[i]);
-	    free(file_array);
-	    closedir(dir);
-	    return NULL;
-	}
-
-	file_array = temp;
-	file_array[file_count] = strdup(dent->d_name);
-
-	if (!file_array[file_count]) {
-	    perror("strdup");
-	    for (size_t i = 0; i < file_count; i++)
-		free(file_array[i]);
-	    free(file_array);
-	    closedir(dir);
-	    return NULL;
-	}
-	file_count++;
+        count++;
+        /* Replace the current selection with probability 1/count */
+        if (rand() % count == 0) {
+            free(selected_file);
+            selected_file = strdup(dent->d_name);
+            if (!selected_file) {
+                perror("strdup");
+                closedir(dir);
+                return NULL;
+            }
+        }
     }
 
     closedir(dir);
-    *count = file_count;
-    return file_array;
+    return selected_file;
 }
 
 void seed_rng(void)
