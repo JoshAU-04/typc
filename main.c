@@ -312,6 +312,7 @@ int __create_directories(const char *path)
     size_t len;
     char *tmp = strdup(path);
     char *p;
+
     if (tmp == NULL) {
 	perror("strdup");
 	return -1;
@@ -568,9 +569,10 @@ char **collect_dir_entries(const char *path, size_t *count)
 	    closedir(dir);
 	    return NULL;
 	}
-	file_array = temp;
 
+	file_array = temp;
 	file_array[file_count] = strdup(dent->d_name);
+
 	if (!file_array[file_count]) {
 	    perror("strdup");
 	    for (size_t i = 0; i < file_count; i++)
@@ -596,6 +598,7 @@ void save_score(double wpm, double cpm, double accuracy,
 		double consistency, char *path)
 {
     FILE *fp;
+
     if (create_data_csv() != 0) {
 	fprintf(stderr, "Failed to create data csv path %s/%s",
 		home_dir, scores_file);
@@ -610,6 +613,7 @@ void save_score(double wpm, double cpm, double accuracy,
 	perror("fopen scores file");
 	return;
     }
+
     /* Save score in CSV format: WPM,CPM,Accuracy,Consistency,Path */
     fprintf(fp, "%.2f,%.2f,%.2f,%.2f,%s\n", wpm, cpm, accuracy,
 	    consistency, path);
@@ -636,6 +640,7 @@ void draw_scrolled(const char *text, int total_chars, size_t i,
 	    attroff(COLOR_PAIR(3));
 	}
     }
+
     attron(COLOR_PAIR(2));
     attron(A_DIM);
     mvprintw(0, current_index - offset, "%.*s",
@@ -650,6 +655,7 @@ void draw_wrapped(const char *text, int total_chars,
 {
     int i;
     int row, col;
+
     /* In wrap mode, use fixed width wrapping */
     for (i = 0; i < total_chars; i++) {
 	row = i / screen_width;
@@ -789,7 +795,6 @@ void parse_args(int argc, char **argv)
 	    exit(EXIT_FAILURE);
 	}
     }
-
 }
 
 void draw_results(double wpm, double cpm, double accuracy,
