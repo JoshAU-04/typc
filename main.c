@@ -798,12 +798,12 @@ void draw_results(double wpm, double cpm, double accuracy,
     int acc_color_index;
 
     clear();
-    mvprintw(0, 0, "WPM: %.6f          CPM: %.2f", wpm, cpm);
+    mvprintw(0, 0, "WPM: %.4f%% CPM: %.2f", wpm, cpm);
     acc_color_index = 4;	/* green by default */
     if (accuracy < 90.0)
 	acc_color_index = 3;
     attron(COLOR_PAIR(acc_color_index));
-    mvprintw(1, 0, "Accuracy: %.4f%%   Consistency: %.2f%%", accuracy,
+    mvprintw(1, 0, "Accuracy: %.4f%% Consistency: %.2f%%", accuracy,
 	     consistency);
     attroff(COLOR_PAIR(acc_color_index));
     mvprintw(4, 5, "[[ Press any key ]]");
