@@ -1,0 +1,3 @@
+Achievements. A box shows up in the bottom right hand corner. They're saved in
+a text file - one line for each achievement - the box in the RHC should have a
+border around it (ncurses supports that).
