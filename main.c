@@ -21,7 +21,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
-#include <ncurses.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -49,6 +48,23 @@
  * typed.
  */
 #define HIDE_ERR 1
+
+/* Splint doesn't exactly 'understand' certain ncurses functions as ncurses is
+ * external. */
+#ifdef SPLINT
+extern WINDOW*
+initscr(void);
+extern int
+endwin(void);
+extern int
+addch(int);
+extern int
+refresh(void);
+extern int
+init_pair(short, short, short);
+#else
+#include <ncurses.h>
+#endif
 
 /* select_random_file - Select a random file from a given directory.
  *
@@ -553,6 +569,7 @@ select_random_file(void)
   }
 
   closedir(dir);
+  free(dent);
   return selected_file;
 }
 
@@ -609,25 +626,26 @@ draw_scrolled(const char* text,
     if ((int)i >= total_chars)
       break;
     if (typed[i] == text[i]) {
-      attron(COLOR_PAIR(1));
-      mvaddch(0, i - offset, typed[i]);
-      attroff(COLOR_PAIR(1));
+      (void)attron(COLOR_PAIR(1));
+      (void)mvaddch(0, i - offset, (chtype)typed[i]);
+      (void)attroff(COLOR_PAIR(1));
     } else {
-      attron(COLOR_PAIR(3));
-      mvaddch(0, i - offset, HIDE_ERR ? text[i] : typed[i]);
-      attroff(COLOR_PAIR(3));
+      (void)attron(COLOR_PAIR(3));
+      (void)mvaddch(
+        0, i - offset, HIDE_ERR ? (chtype)text[i] : (chtype)typed[i]);
+      (void)attroff(COLOR_PAIR(3));
     }
   }
 
-  attron(COLOR_PAIR(2));
-  attron(A_DIM);
-  mvprintw(0,
-           current_index - offset,
-           "%.*s",
-           screen_width - (current_index - offset),
-           text + current_index);
-  attroff(A_DIM);
-  attroff(COLOR_PAIR(2));
+  (void)attron(COLOR_PAIR(2));
+  (void)attron(A_DIM);
+  (void)mvprintw(0,
+                 current_index - offset,
+                 "%.*s",
+                 screen_width - (current_index - offset),
+                 text + current_index);
+  (void)attroff(A_DIM);
+  (void)attroff(COLOR_PAIR(2));
 }
 
 void
@@ -646,21 +664,21 @@ draw_wrapped(const char* text,
     col = i % screen_width;
     if (i < current_index) {
       if (typed[i] == text[i]) {
-        attron(COLOR_PAIR(1));
-        mvaddch(row, col, typed[i]);
-        attroff(COLOR_PAIR(1));
+        (void)attron(COLOR_PAIR(1));
+        (void)mvaddch(row, col, (chtype)typed[i]);
+        (void)attroff(COLOR_PAIR(1));
       } else {
-        attron(COLOR_PAIR(3));
+        (void)attron(COLOR_PAIR(3));
         /* If HIDE_ERR is 1, show expected char */
-        mvaddch(row, col, HIDE_ERR ? text[i] : typed[i]);
-        attroff(COLOR_PAIR(3));
+        (void)mvaddch(row, col, HIDE_ERR ? (chtype)text[i] : (chtype)typed[i]);
+        (void)attroff(COLOR_PAIR(3));
       }
     } else {
-      attron(COLOR_PAIR(2));
-      attron(A_DIM);
-      mvaddch(row, col, text[i]);
-      attroff(A_DIM);
-      attroff(COLOR_PAIR(2));
+      (void)attron(COLOR_PAIR(2));
+      (void)attron(A_DIM);
+      (void)mvaddch(row, col, (chtype)text[i]);
+      (void)attroff(A_DIM);
+      (void)attroff(COLOR_PAIR(2));
     }
   }
 }
@@ -687,7 +705,11 @@ run_typing_trainer(char* path, const char* text)
   typed = malloc(total_chars + 1);
   if (!typed)
     return;
-  memset(typed, 0, total_chars + 1);
+  if (!memset(typed, 0, total_chars + 1)) {
+    perror("memset:");
+    free(typed);
+    exit(EXIT_FAILURE);
+  };
 
   /* Counters for keystrokes and errors for consistency */
   total_keystrokes = 0;
@@ -703,18 +725,20 @@ run_typing_trainer(char* path, const char* text)
 
   /* Typing loop */
   while (current_index < total_chars) {
-    clear();
+    (void)clear();
     screen_width = getmaxx(stdscr);
 
-    if (wrap_mode) {
-      draw_wrapped(text, total_chars, screen_width, typed, current_index);
+    if (wrap_mode == 1) {
+      draw_wrapped(
+        text, (int)total_chars, screen_width, typed, (int)current_index);
     } else {
-      draw_scrolled(text, total_chars, i, screen_width, typed, current_index);
+      draw_scrolled(
+        text, (int)total_chars, i, screen_width, typed, (int)current_index);
     }
 
-    refresh();
+    (void)refresh();
     ch = getch();
-    if (!started) {
+    if (started == 0) {
       start_time = time(NULL);
       started = 1;
     }
@@ -732,6 +756,8 @@ run_typing_trainer(char* path, const char* text)
   }
   end_time = time(NULL);
 
+  cpm = 0.0;
+  wpm = 0.0;
   elapsed = difftime(end_time, start_time);
   if (elapsed <= 0)
     elapsed = 1; /* avoid division by zero */
@@ -749,7 +775,6 @@ run_typing_trainer(char* path, const char* text)
       : 100.0;
 
   draw_results(wpm, cpm, accuracy, consistency);
-
   save_score(wpm, cpm, accuracy, consistency, path);
   free(typed);
 }
@@ -787,41 +812,42 @@ parse_args(int argc, char** argv)
 void
 draw_results(double wpm, double cpm, double accuracy, double consistency)
 {
-  int acc_color_index;
+  int acc_color_index = 0;
 
-  clear();
-  mvprintw(0, 0, "WPM: %.4f%% CPM: %.2f", wpm, cpm);
+  (void)clear();
+  (void)mvprintw(0, 0, "WPM: %.4f%% CPM: %.2f", wpm, cpm);
   acc_color_index = 4; /* green by default */
   if (accuracy < 90.0)
     acc_color_index = 3;
-  attron(COLOR_PAIR(acc_color_index));
-  mvprintw(1, 0, "Accuracy: %.4f%% Consistency: %.2f%%", accuracy, consistency);
-  attroff(COLOR_PAIR(acc_color_index));
-  mvprintw(4, 5, "[[ Press any key ]]");
-  refresh();
-  getch();
-  endwin();
+  (void)attron(COLOR_PAIR(acc_color_index));
+  (void)mvprintw(
+    1, 0, "Accuracy: %.4f%% Consistency: %.2f%%", accuracy, consistency);
+  (void)attroff(COLOR_PAIR(acc_color_index));
+  (void)mvprintw(4, 5, "[[ Press any key ]]");
+  (void)refresh();
+  (void)getch();
+  (void)endwin();
 }
 
 void
 __init_ncurses(void)
 {
   /* Initialize ncurses */
-  initscr();
-  cbreak();
-  noecho();
-  keypad(stdscr, TRUE);
-  curs_set(0); /* hide cursor */
+  (void)initscr();
+  (void)cbreak();
+  (void)noecho();
+  (void)keypad(stdscr, (bool)1);
+  (void)curs_set(0); /* hide cursor */
 
   if (has_colors()) {
-    start_color();
+    (void)start_color();
     /* Color pair 1: white on black for correct typed text */
-    init_pair(1, COLOR_WHITE, COLOR_BLACK);
+    (void)init_pair(1, COLOR_WHITE, COLOR_BLACK);
     /* Color pair 2: white on black for untyped text with dim attribute */
-    init_pair(2, COLOR_WHITE, COLOR_BLACK);
+    (void)init_pair(2, COLOR_WHITE, COLOR_BLACK);
     /* Color pair 3: red on black for incorrect typed text */
-    init_pair(3, COLOR_RED, COLOR_BLACK);
+    (void)init_pair(3, COLOR_RED, COLOR_BLACK);
     /* Color pair 4: green on black for good accuracy */
-    init_pair(4, COLOR_GREEN, COLOR_BLACK);
+    (void)init_pair(4, COLOR_GREEN, COLOR_BLACK);
   }
 }
