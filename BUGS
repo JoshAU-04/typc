@@ -1,0 +1,4 @@
+There is a bug where a 'space' character at the end of a text will be
+considered as an error or 'typo' which decreases the accuracy from 100% to
+around 99.9% depending on the length of the text and assuming that no other
+errors have occurred..
