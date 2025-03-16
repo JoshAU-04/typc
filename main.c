@@ -167,7 +167,6 @@ static void seed_rng(void);
 static void save_score(double wpm, double cpm, double accuracy,
 		       double consistency, char *path);
 
-
 /**
  * init_ncurses - Initialize ncurses
  *
@@ -228,7 +227,6 @@ static void usage(char *progname);
  * err.
  */
 static int __create_directories(const char *path);
-
 
 /**
  * draw_results - Draw results screen.
